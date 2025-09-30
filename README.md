@@ -7,8 +7,10 @@ source venv/bin/activate
 pip install -r requirements.txt
 ```
 
+启动容器 `docker start oe`
 进入容器 `docker exec -it oe bash`
 离开容器 `exit`
+关闭容器 `docker stop oe`
 激活虚拟环境 `source venv/bin/activate`
 退出虚拟环境 `deactivate`
 

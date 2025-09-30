@@ -1,0 +1,8 @@
+services:
+  oe:
+    build : .
+    container_name: "oe"
+    tty: true
+    stdin_open: true
+    volumes:
+      - ./work:/work

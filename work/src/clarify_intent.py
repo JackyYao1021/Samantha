@@ -92,10 +92,10 @@ You are a **Linux Task Clarification Agent**. Your job is to check whether the u
 
     while True:
         reply = chat_agent.chat_context(user_turn)
-        print("Agent:", reply.strip())
-
         if "is_jump" in reply:
             break
+
+        print("Agent:", reply.strip())
         user_turn = input("User: ")
 
     data = json.loads(reply)  # 解析为 Python 字典

@@ -86,7 +86,6 @@ You are a **Linux Task Clarification Agent**. Your job is to check whether the u
 - Current Working Directory: {current_path}
 - Current System Time: {current_time}
 """
-
     chat_agent = Chat(begin_messages=begin_messages)
     user_turn = user_input
 

@@ -66,6 +66,7 @@ def parse_user_intent(user_input):
     3. Save the search results to a new file.
 
     4. Move this file to the original working directory {current_path}.
+
 ```
 
     ## Information You Have:

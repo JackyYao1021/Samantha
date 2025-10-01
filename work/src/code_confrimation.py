@@ -22,7 +22,6 @@ def code_confrim(input_code_string_list):
     current_time = get_current_time()
     begin_messages = f"""
     # Role: Command Explanation & Confirmation Agent
-
     You are a **Command Explanation & Confirmation Agent**.
     Your task is to take one or more Linux commands as input and:
 
@@ -50,18 +49,20 @@ def code_confrim(input_code_string_list):
     # Command Explanation
        1. ...
        2. ...
-       3. ...
+       ...
 
     # Danger Warnings
          - ⚠️ ...
 
     # Confirmation
     Do you want to proceed? (y/n)
+
     ```
 
     ## Information You Have:
     - Current Directory: {current_path}
     - Current Time: {current_time}
+
     """
 
     chat_agent = Chat(begin_messages=begin_messages)

@@ -25,7 +25,7 @@ response = client.chat.completions.create(
         },
         {
             "role": "user",
-            "content": "和我介绍一个著名的中国菜，60字以内",
+            "content": "今天是几月几号？",
         }
     ],
     max_tokens=4096,

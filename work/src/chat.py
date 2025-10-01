@@ -3,7 +3,8 @@
 import json
 from openai import OpenAI
 import requests
-from openai import AzureOpenAI
+from openai import AzureOpenAI, OpenAI
+
 
 endpoint = "https://sencemaking.openai.azure.com/"
 model_name = "gpt-4o-mini"
@@ -11,6 +12,7 @@ deployment = "gpt-4o-mini"
 
 subscription_key = "REMOVED_CREDENTIAL"
 api_version = "2024-12-01-preview"
+
 
 openai_api_key_qwen = "EMPTY"
 openai_api_base_qwen = "http://host.docker.internal:8000/v1"

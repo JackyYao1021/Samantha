@@ -24,7 +24,10 @@ def natural_language_to_command_agent(user_input):
         - Understand the user's natural language input.
         - Translate the input into accurate and efficient OpenEuler commands.
         - Ensure the commands are safe to execute and do not pose any security risks.
+        - Please use rm -i when deleting files to avoid accidental deletions.
         - Add command options as necessary to ensure the command works as intended.
+        - Please ensure the generated command can be executed directly in a Bash terminal, and use single quotes to handle the filename wildcard, without using backslash escapes
+
         ---
 
         ## Output Format:
@@ -71,18 +74,83 @@ def test(user_input=None):
 if __name__ == "__main__":
     # chat_loop()
     
-    # input_list = [# "How to check the disk usage of the root directory?",
-    #               # "How to list all files in a directory including hidden files?", 
-    #               "How to find all files with a specific extension in a directory and its subdirectories?",]
-    #             #   "How to check the status of a service in OpenEuler?",
-    #             #   "How to display the current network configuration?"]
-    
     input_list = [
-        "Go to my downloads folder",
-        "Switch to root directory",
-        "Move to the parent folder",
-        "Enter the etc folder",
-        "Go to my home"
+        # #Navigation - Change directory
+        # "Go to my downloads folder",
+        # "Switch to root directory",
+        # "Move to the parent folder",
+        # "Enter the etc folder",
+        # "Go to my home",
+        
+        # #Navigation - List files
+        # "Show me what's in this directory",
+        # "Show me all files, even hidden ones",
+        # "Give me detailed list here",
+        # "Show files sorted by time",   
+        # "List all files, even hidden ones",
+        # "Give me detailed list here",
+        # "Show files sorted by time",
+        # "List contents of /var/log"
+
+        # #Creation - Create new empty file
+        # "Make a file called test.txt",
+        # "Create an empty log file called app.log",
+        # "New file notes.md in current folder",
+        # "Add a blank file called report.csv",
+        # "Create file script.sh here"
+
+        # #Creation - Create new empty directories
+        # "Make a folder called Hackathon Project",
+        # "Create a folder named src",
+        # "Add a new directory output",
+        # "New empty directory test_cases",
+        # "Make a logs folder inside tmp"
+
+        # #Basic Manipulation - Move file/directory
+        # "Move report.pdf to ~/Documents",
+        # "Relocate all .log files into logs/",
+        # "Move images folder into backup",
+        # "Send main.c into src directory",
+        # "Move old_data.csv and rename to archive.csv"
+
+        # #Basic Manipulation - Copy file/directory
+        "Copy config.yaml to backup folder",
+        "Duplicate data.txt as data.bak",
+        "Copy everything in docs to archive",
+        "Copy photo.jpg into ~/Pictures",
+        "Copy all .txt files to notes/",
+
+
+        # #Basic Manipulation - Rename file/directory
+        # "Rename old.txt to new.txt",
+        # "Change name of logs folder to old_logs",
+        # "Rename report.docx as final_report.docx",
+        # "Change draft.md to draft_v2.md",
+        # "Rename src directory to source",
+
+        # #Simple Search - Find file/directory
+        # "Find a file named notes.txt",
+        # "Search for folder called logs",
+        # "Look for any file named config.json under /etc",
+        # "Find script.sh inside current tree",
+        # "Locate Makefile"
+        
+        # #User Feedback
+        # "Tell me when the file is created",
+        # "Confirm that folder is moved",
+        # "Show error if file doesn't exist",
+        # "Notify me after copying finishes",
+        # "Say success if rename worked"
+        
+        # "Find all PDF documents in 'Reports'"
+        
+        # #Critical Feature - Safety
+        # "Delete file old.txt",
+        # "Remove folder temp_data",
+        # "Erase report.docx",
+        # "Delete everything in cache",
+        # "Remove backup.tar.gz"
+
     ]
     for input in input_list:
         print(f"User: {input}")

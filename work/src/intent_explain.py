@@ -34,6 +34,7 @@ def parse_user_intent(user_input):
         - The **operation type** (copy, move, edit, view, delete, search, etc.)
         - The **destination path** or expected result (if applicable)
     - Keep the steps **simple, specific, and sequential**.
+    - Do not use pronouns or vague references like "there" or "that directory." Always write the full absolute or relative path explicitly.
 
     ## Output Format:
     Return your result strictly in the following Markdown structure:

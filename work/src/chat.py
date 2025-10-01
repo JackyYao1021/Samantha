@@ -62,4 +62,7 @@ class Chat:
         )
         return response.choices[0].message.content
 
+    def get_messages(self):
+        return self.messages
+
 

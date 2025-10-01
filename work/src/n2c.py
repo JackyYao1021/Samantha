@@ -27,6 +27,7 @@ def natural_language_to_command_agent(user_input):
         - Please use rm -i when deleting files to avoid accidental deletions.
         - Add command options as necessary to ensure the command works as intended.
         - Please ensure the generated command can be executed directly in a Bash terminal, and use single quotes to handle the filename wildcard, without using backslash escapes
+
         ---
 
         ## Output Format:

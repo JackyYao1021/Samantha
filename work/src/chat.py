@@ -3,7 +3,7 @@
 import json
 from openai import OpenAI
 import requests
-from openai import AzureOpenAI
+from openai import AzureOpenAI, OpenAI
 
 endpoint = "https://sencemaking.openai.azure.com/"
 model_name = "gpt-4o-mini"
@@ -12,12 +12,21 @@ deployment = "gpt-4o-mini"
 subscription_key = "REMOVED_CREDENTIAL"
 api_version = "2024-12-01-preview"
 
+openai_api_key = "EMPTY"
+openai_api_base = "http://host.docker.internal:8000/v1"
+model = "Qwen/Qwen3-Coder-480B-A35B-Instruct-FP8"
+
 class Chat:
     def __init__(self, begin_messages=None, max_tokens=4096, temperature=1.0, top_p=1.0):
-        self.client = AzureOpenAI(
-            api_version=api_version,
-            azure_endpoint=endpoint,
-            api_key=subscription_key,
+        # self.client = AzureOpenAI(
+        #     api_version=api_version,
+        #     azure_endpoint=endpoint,
+        #     api_key=subscription_key,
+        # )
+        
+        self.client = OpenAI(
+            api_key=openai_api_key,
+            base_url=openai_api_base,
         )
         self.messages = [
             {
@@ -25,7 +34,7 @@ class Chat:
                 "content": begin_messages if begin_messages else "You are a helpful assistant.",
             }
         ]
-        self.model = deployment
+        self.model = model
         self.max_tokens=4096
         self.temperature=1.0
         self.top_p=1.0

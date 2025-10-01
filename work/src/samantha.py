@@ -74,5 +74,6 @@ def process(initial_input, terminal_history):
     else:
         print("Command execution cancelled by user.")
 
-# process("take me to the upper level directory and create a folder named test, then create a file named test.txt in it, write 'hello world' to the file, and finally display the content of the file", [])
-process("delete the directory /work/test", [])
+process("take me to the upper level directory and create a folder named test, then create a file named test.txt in it, write 'hello world' to the file, and finally display the content of the file", [])
+# process("delete the directory /work/test", [])
+# process("move to directory /work/venv", [])

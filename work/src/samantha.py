@@ -3,6 +3,7 @@ from code_confrimation import *
 from clarify_intent import *
 from n2c import *
 from run_commands import run_commands
+from error_correction import *
 import json
 import sys
 
@@ -65,10 +66,29 @@ def process(initial_input, terminal_history):
         ########## execute commands ##########
         # TODO: figure out if need to change the directory after executing commands?
         result = run_commands(commands)
-        if result["success"]:
-            print("Commands executed successfully ^-^ ")
-        else: 
-            print("Some commands failed to execute T-T ")
+        attempt = 0
+        max_attempts = 3
+        while not result["success"] and attempt < max_attempts:
+            error_message = result.get("error", "Unknown error occurred.")
+            intent = error_correction_agent(initial_input, commands, error_message)
+            # print(intent)
+            response = natural_language_to_command_agent(intent)
+            # print("agent4: Error Correction Response:\n", commands)
+            commands, _ = parse_commands(response)
+            if commands:
+                intent = code_confrim(commands)
+            else:
+                intent = "No commands generated."
+                
+            print(intent.strip().strip("`").strip())
+            confirmation_input = input().strip().lower()
+            result = run_commands(commands) if confirmation_input == 'y' else None
+            
+        if result and result["success"]:
+            print("Commands executed successfully ^-^ ")   
+        else:
+            print("Command execution cancelled by user.")
+            
         # print("Success:", result["success"])
         print("-----Output-----\n", result["output"])
 

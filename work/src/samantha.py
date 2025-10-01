@@ -27,7 +27,7 @@ def parse_commands(text):
 
 def process(initial_input, terminal_history):
 
-    print("I'm thinking...")
+    print("Checking the clarity of your request...")
 
     change_dir = True
 
@@ -35,13 +35,14 @@ def process(initial_input, terminal_history):
     change_dir, clarified_msg = clarify_user_intent(initial_input)
 
     # print("agent0: Clarified Message:\n", clarified_msg)
-    print("I'm thinking...")
+    print("Trying to understand your request...")
 
     ######### go to agent1 ##########
     intent = parse_user_intent(clarified_msg)
 
     # print("agent1: Intent Breakdown:\n", intent)
 
+    print("Generating commands...")
     ######### go to agent2 ##########
     # TODO: include both terminal history and inline history
     response = natural_language_to_command_agent(intent)
@@ -69,7 +70,10 @@ def process(initial_input, terminal_history):
         attempt = 0
         max_attempts = 3
         while not result["success"] and attempt < max_attempts:
-            error_message = result.get("error", "Unknown error occurred.")
+            # print(result)
+            error_message = result["output"]
+            print(f"Error Message:\n{error_message}\n")
+            print("Dealing with the error...")
             intent = error_correction_agent(initial_input, commands, error_message)
             # print(intent)
             response = natural_language_to_command_agent(intent)
@@ -82,12 +86,17 @@ def process(initial_input, terminal_history):
                 
             print(intent.strip().strip("`").strip())
             confirmation_input = input().strip().lower()
-            result = run_commands(commands) if confirmation_input == 'y' else None
+            if confirmation_input == 'y':
+                result = run_commands(commands) 
+            else:
+                result = {"success": False, "output": "Command execution cancelled by user.", "current_dir": os.getcwd()}
+                break
+            attempt += 1
             
         if result and result["success"]:
             print("Commands executed successfully ^-^ ")   
         else:
-            print("Command execution cancelled by user.")
+            print(f"Command execution unsuccessful.\nError Message:\n{result['output']}")
             
         # print("Success:", result["success"])
         print("-----Output-----\n", result["output"])

@@ -1,7 +1,20 @@
 from chat import Chat
+import sys
+import os
+from datetime import datetime
+
+# 获得当前所在的路径
+def get_current_path():
+    return os.getcwd()
+
+# 获得当前系统时间
+def get_current_time():
+    return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
 def clarify_user_intent(user_input):
-    begin_messages = """
+    current_path = get_current_path()
+    current_time = get_current_time()
+    begin_messages = f"""
     # Role: Clarification Agent
 
     You are a **Clarification Agent**. Your job is to check if the user's natural language request for a Linux task is **clear and complete**.
@@ -25,6 +38,10 @@ def clarify_user_intent(user_input):
 
     User: "Create a file 'test.txt' in /home/user"
     You: "✅ Intent is clear. Ready to pass to Intent Parsing Agent."
+
+    ## Information You Have:
+    - Current Directory: {current_path}
+    - Current Time: {current_time}
     """
     chat_agent = Chat(begin_messages=begin_messages)
     user_turn = user_input

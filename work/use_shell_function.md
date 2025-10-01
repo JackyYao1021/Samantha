@@ -7,23 +7,26 @@ To directly control the current terminal, we use a shell function to call the py
     It will open the vim editor. Copy and paste the following contents to the end of your bashrc file:
 
     ```bash
-    run_cmd() {
-        output=$(python /work/run/test_run.py)
+    samantha() {
+        python /work/src/samantha.py "$*"
 
-        target=$(echo "$output" | grep '^::TARGET_PATH:: ' | sed 's/^::TARGET_PATH:: //')
-
-        echo "$output" | grep -v '^::TARGET_PATH::'
-
-        if [ "$1" = "true" ]; then
-            cd "$target" || return
+        # default - change the path according to the executed commands
+        if [ -f /tmp/current_dir.json ]; then
+            # extract path from json file
+            target_dir=$(grep -o '"current_dir": *"[^"]*"' /tmp/current_dir.json | sed 's/.*"current_dir": *"\([^"]*\)".*/\1/')
+            
+            # jump to the target directory if it exists
+            if [ -n "$target_dir" ] && [ -d "$target_dir" ]; then
+                cd "$target_dir" || return
+            fi
         fi
     }
     ```
-    __Your may need to change `/work/run/test_run.py` to your own path of the python file.__
+    __Your may need to change `/work/run/samantha.py` to your own path of the python file.__
 
-    _**Tips:** in vim, type `i` to insert contents, type `:wq` to save and exit._
+    _**Tips:** in vim, type `i` to insert contents, type `Esc` and `:wq` to save and exit._
 
 2. Run: `source ~/.bashrc`
-3. After that, you can use `run_cmd` in your terminal, which will directly run the python file in the given path and jump to the final path if needed. 
+3. After that, you can use `samantha` in your terminal, which will directly run the python file in the given path and jump to the final path if needed. 
 
-    For example: ```run_cmd true```. The first parameter `true` means you'll stay at the final path of the commands that have been run. Let it be anything else if you don't want to change your current path.
+    For example: ```samantha take me to home``` will execute `cd ~` in the terminal and take you to the home directory. 

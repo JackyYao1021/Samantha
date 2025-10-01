@@ -4,6 +4,7 @@ from clarify_intent import *
 from n2c import *
 from run_commands import run_commands
 import json
+import sys
 
 def parse_commands(text):
     """
@@ -25,14 +26,15 @@ def parse_commands(text):
 
 def process(initial_input, terminal_history):
 
-    history = []
+    print("I'm thinking...")
 
-    history.append({"role": "user", "content": initial_input})
+    change_dir = True
 
     ######### use agent0 to check clearness ##########
-    is_jump, clarified_msg = clarify_user_intent(initial_input)
+    change_dir, clarified_msg = clarify_user_intent(initial_input)
 
     # print("agent0: Clarified Message:\n", clarified_msg)
+    print("I'm thinking...")
 
     ######### go to agent1 ##########
     intent = parse_user_intent(clarified_msg)
@@ -46,7 +48,7 @@ def process(initial_input, terminal_history):
     # print("agent2: N2C Response:\n", response)
 
     commands, _ = parse_commands(response) # parse response to get commands
-
+    # print("agent2: Parsed Commands:\n", commands)
 
     ######### go to agent3 ##########
     if commands:
@@ -55,17 +57,20 @@ def process(initial_input, terminal_history):
         intent = "No commands generated."
 
     # ask for user confirmation
-    print("Confirmation Note:\n", intent)
+    print(intent.strip().strip("`").strip()) #"Confirmation Note:\n", 
 
     confirmation_input = input().strip().lower()
 
     if confirmation_input == 'y':
         ########## execute commands ##########
         # TODO: figure out if need to change the directory after executing commands?
-        change_dir = True
         result = run_commands(commands)
-        print("Success:", result["success"])
-        print("Output:\n", result["output"])
+        if result["success"]:
+            print("Commands executed successfully ^-^ ")
+        else: 
+            print("Some commands failed to execute T-T ")
+        # print("Success:", result["success"])
+        print("-----Output-----\n", result["output"])
 
         if change_dir:
             # save the current directory to a file
@@ -74,6 +79,16 @@ def process(initial_input, terminal_history):
     else:
         print("Command execution cancelled by user.")
 
-process("take me to the upper level directory and create a folder named test, then create a file named test.txt in it, write 'hello world' to the file, and finally display the content of the file", [])
+# process("take me to the upper level directory and create a folder named test, then create a file named test.txt in it, write 'hello world' to the file, and finally display the content of the file", [])
+
+if __name__ == "__main__":
+
+    user_command = " ".join(sys.argv[1:]).strip()
+    if user_command:  # only execute if user_command is not empty
+        process(user_command, [])
+    else:
+        print("Error: empty command provided.\n"
+                "Usage: samantha <command>\n"
+                "Example: samantha create a file named test.txt in the current directory and write hello world to it")
+
 # process("delete the directory /work/test", [])
-# process("move to directory /work/venv", [])

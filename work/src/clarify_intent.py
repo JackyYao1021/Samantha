@@ -102,6 +102,9 @@ You are a **Linux Task Clarification Agent**. Your job is to check whether the u
         reply = chat_agent.chat_context(user_turn)
         if "is_jump" in reply:
             break
+        if "end of chat" in reply:
+            print("Thank you for your response. If you have any questions or tasks in the future, feel freeto ask!")
+            exit(0)
 
         print("Agent:", reply.strip())
         user_turn = input("User: ")

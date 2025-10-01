@@ -1,4 +1,5 @@
 from chat import Chat
+import re
 import sys
 import os
 from datetime import datetime
@@ -109,11 +110,23 @@ You are a **Linux Task Clarification Agent**. Your job is to check whether the u
         print("Agent:", reply.strip())
         user_turn = input("User: ")
 
-    data = json.loads(reply)  # 解析为 Python 字典
-    is_jump: bool = data["is_jump"]
-    requirement_summary: str = data["requirement_summary"]
+    reply = reply.strip()
+    # 匹配 ```json ... ``` 或 ``` ... ```
+    reply = re.sub(r"^```(?:json)?\s*|\s*```$", "", reply.strip(), flags=re.IGNORECASE)
 
-    return is_jump, requirement_summary 
+    # 2. 尝试解析 JSON
+    try:
+        data = json.loads(reply)
+        is_jump: bool = data["is_jump"]
+        requirement_summary: str = data["requirement_summary"]
+    except json.JSONDecodeError as e:
+        print("====failed in json decoding====\n", e)
+        exit(1)
+    except KeyError as e:
+        print(f"====failed in json decoding====\n: {e}")
+        exit(1)
+
+    return is_jump, requirement_summary
 
 
 if __name__ == "__main__":

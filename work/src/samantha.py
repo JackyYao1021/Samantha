@@ -1,7 +1,8 @@
-from src.intent_explain import *
-from src.code_confrimation import *
+from intent_explain import *
+from code_confrimation import *
+from clarify_intent import *
 from n2c import *
-from run.run_commands import run_commands
+from run_commands import run_commands
 import json
 
 def parse_commands(text):
@@ -21,43 +22,24 @@ def parse_commands(text):
         return commands, explanation
     except json.JSONDecodeError:
         return [], "Failed to parse commands."
-    
-def agent0():
-    return False  # TODO: implement intent clarity check
 
-def process(input, terminal_history):
+def process(initial_input, terminal_history):
 
     history = []
 
-    history.append({"role": "user", "content": input})
+    history.append({"role": "user", "content": initial_input})
 
     ######### use agent0 to check clearness ##########
-    unclear = True
-
-    while True:
-        unclear, message = agent0()  # TODO: determine if intent is unclear
-        if unclear == False:
-            break
-
-        # TODO: ask for clarification if intent is unclear
-        if unclear:
-            print(message)
-            user_input = input("User: ")
-            history.append({"role": "assistant", "content": message})
-            history.append({"role": "user", "content": user_input})
-
+    # clarified_msg = clarify_user_intent(input)
 
     ######### go to agent1 ##########
-    # TODO: directly input history?
-    intent = parse_user_intent(history)
-
+    intent = parse_user_intent(initial_input)
 
     ######### go to agent2 ##########
     # TODO: include both terminal history and inline history
-    response = natural_language_to_command_agent(client, intent, history)
+    response = natural_language_to_command_agent(intent)
 
-    # parse response to get commands
-    commands, _ = parse_commands(response)
+    commands, _ = parse_commands(response) # parse response to get commands
 
 
     ######### go to agent3 ##########
@@ -85,3 +67,5 @@ def process(input, terminal_history):
 
     else:
         print("Command execution cancelled by user.")
+
+process("take me to the upper level directory and create a folder named test, then create a file named test.txt in it, write 'hello world' to the file, and finally display the content of the file", [])

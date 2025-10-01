@@ -30,7 +30,9 @@ class Chat:
         self.temperature=1.0
         self.top_p=1.0
 
-    
+    """
+    Chat with context
+    """
     def chat_context(self, prompt):
         messages = self.messages + [{"role": "user", "content": prompt}]
         response = self.client.chat.completions.create(
@@ -43,6 +45,10 @@ class Chat:
         messages.append({"role": "assistant", "content": response.choices[0].message.content})
         return response.choices[0].message.content
     
+    """
+    Temporary chat without context
+    Not recommended for use, as it does not retain conversation history
+    """
     def temp_chat(self, prompt):
         response = self.client.chat.completions.create(
             messages=[
@@ -61,5 +67,8 @@ class Chat:
             model=self.model
         )
         return response.choices[0].message.content
+
+    def get_messages(self):
+        return self.messages
 
 

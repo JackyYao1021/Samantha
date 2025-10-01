@@ -30,14 +30,20 @@ def process(initial_input, terminal_history):
     history.append({"role": "user", "content": initial_input})
 
     ######### use agent0 to check clearness ##########
-    # clarified_msg = clarify_user_intent(input)
+    is_jump, clarified_msg = clarify_user_intent(initial_input)
+
+    print("agent0: Clarified Message:\n", clarified_msg)
 
     ######### go to agent1 ##########
-    intent = parse_user_intent(initial_input)
+    intent = parse_user_intent(clarified_msg)
+
+    print("agent1: Intent Breakdown:\n", intent)
 
     ######### go to agent2 ##########
     # TODO: include both terminal history and inline history
     response = natural_language_to_command_agent(intent)
+
+    print("agent2: N2C Response:\n", response)
 
     commands, _ = parse_commands(response) # parse response to get commands
 
@@ -68,4 +74,5 @@ def process(initial_input, terminal_history):
     else:
         print("Command execution cancelled by user.")
 
-process("take me to the upper level directory and create a folder named test, then create a file named test.txt in it, write 'hello world' to the file, and finally display the content of the file", [])
+# process("take me to the upper level directory and create a folder named test, then create a file named test.txt in it, write 'hello world' to the file, and finally display the content of the file", [])
+process("delete the directory /work/test", [])

@@ -59,13 +59,13 @@ def parse_user_intent(user_input):
 ```
     # Intent Breakdown
 
-    1. Open the directory /var/log from {current_path}.
+    1. Open the directory /var/log from current working directory {current_path}.
 
     2. Search all log files in this directory for lines containing the keyword error.
 
     3. Save the search results to a new file.
 
-    4. Move this file to the {current_path}.
+    4. Move this file to the original working directory {current_path}.
 ```
 
     ## Information You Have:

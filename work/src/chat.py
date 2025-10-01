@@ -34,15 +34,15 @@ class Chat:
     Chat with context
     """
     def chat_context(self, prompt):
-        messages = self.messages + [{"role": "user", "content": prompt}]
+        self.messages = self.messages + [{"role": "user", "content": prompt}]
         response = self.client.chat.completions.create(
-            messages=messages,
+            messages=self.messages,
             max_tokens=self.max_tokens,
             temperature=self.temperature,
             top_p=self.top_p,
             model=self.model
         )
-        messages.append({"role": "assistant", "content": response.choices[0].message.content})
+        self.messages.append({"role": "assistant", "content": response.choices[0].message.content})
         return response.choices[0].message.content
     
     """

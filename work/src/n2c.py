@@ -1,33 +1,14 @@
-import json
-from openai import OpenAI
-import requests
-from openai import AzureOpenAI
-
-endpoint = "https://sencemaking.openai.azure.com/"
-model_name = "gpt-4o-mini"
-deployment = "gpt-4o-mini"
-
-subscription_key = "REMOVED_CREDENTIAL"
-api_version = "2024-12-01-preview"
-
-client = AzureOpenAI(
-    api_version=api_version,
-    azure_endpoint=endpoint,
-    api_key=subscription_key,
-)
+from chat import Chat
 
 
-"""
-Natural Language to Command Agent
-Input: Natural language instructions
-Output: Corresponding OpenEuler commands && Explanation
-"""
-
-def natural_language_to_command_agent(client, user_input, history=[]):
-    messages = [
-        {
-        "role": "system", 
-        "content": """
+def natural_language_to_command_agent(user_input):
+    """
+        Natural Language to Command Agent
+        Input: Natural language instructions
+        Output: Corresponding OpenEuler commands && Explanation
+    """
+    
+    begin_messages = """
         Role: Linux Command Generation Agent
          
         You are a **Linux Command Generation Agent**.
@@ -52,35 +33,36 @@ def natural_language_to_command_agent(client, user_input, history=[]):
             "Commands": ["command1", "command2", "..."],
             "Explanation": "A brief explanation of what the command(s) do."
         }
-        """},
-    ]
-    messages += history
-    messages.append({"role": "user", "content": user_input})
-
-    response = client.chat.completions.create(
-        messages=messages,
-        max_tokens=4096,
-        temperature=0.7,
-        top_p=1.0,
-        model=deployment
-    )
-
-    return response.choices[0].message.content
+        """
     
+    chat_agent = Chat(begin_messages)
+    response = chat_agent.chat_context(user_input)
+    return response
+    
+
 def chat_loop():
+    """
+        Chat loop for continuous interaction
+    """
+    
     history = []
     while True:
         user_input = input("User: ")
         if user_input.lower() in ["exit", "quit"]:
             break
-        response = natural_language_to_command_agent(client, user_input, history)
+        response = natural_language_to_command_agent(user_input)
         print(response)
         history.append({"role": "user", "content": user_input})
         history.append({"role": "assistant", "content": response})
 
+
+
 def test(user_input=None):
+    """
+        Test function for the agent
+    """
     while True:
-        response = natural_language_to_command_agent(client, user_input)
+        response = natural_language_to_command_agent(user_input)
         print(response)
         if "Commands" in response:
             break

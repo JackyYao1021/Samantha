@@ -87,7 +87,7 @@ def process(initial_input, terminal_history):
             print(intent.strip().strip("`").strip())
             confirmation_input = input().strip().lower()
             if confirmation_input == 'y':
-                print("commands to execute:", commands)
+                # print("commands to execute:", commands)
                 result = run_commands(commands) 
             else:
                 result = {"success": False, "output": "Command execution cancelled by user.", "current_dir": os.getcwd()}

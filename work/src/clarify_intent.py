@@ -4,11 +4,11 @@ import os
 from datetime import datetime
 import json
 
-# 获得当前所在的路径
+# get current path
 def get_current_path():
     return os.getcwd()
 
-# 获得当前系统时间
+# get current system time
 def get_current_time():
     return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
@@ -30,7 +30,7 @@ You are a **Linux Task Clarification Agent**. Your job is to check whether the u
    “After completion, should we **stay in the starting directory** or **stay in the destination (completion) directory**?”
 
    2.5) **Exception: pure directory navigation**  
-   If the user's request is **only to change directories** (e.g., “go to /opt/tools”, “cd /var/logs”) **without any additional actions**, then **do not ask for confirmation**.  
+   If the user's request is **only to change/moving directories** (e.g., “go to /opt/tools”, “cd /var/logs”) **without any additional actions**, then **do not ask for confirmation**.  
    In this case, **default behavior is to stay in the destination directory** (`"is_jump": true`).
 
 3) **Output format (when info is sufficient)**  
@@ -103,7 +103,7 @@ You are a **Linux Task Clarification Agent**. Your job is to check whether the u
         if "is_jump" in reply:
             break
         if "end of chat" in reply:
-            print("Thank you for your response. If you have any questions or tasks in the future, feel freeto ask!")
+            print("Thank you for your response. If you have any questions or tasks in the future, feel free to ask!")
             exit(0)
 
         print("Agent:", reply.strip())
@@ -117,6 +117,5 @@ You are a **Linux Task Clarification Agent**. Your job is to check whether the u
 
 
 if __name__ == "__main__":
-    # 示例交互循环
     user_input = "I want to copy a file"
     print(clarify_user_intent(user_input))

@@ -1,4 +1,6 @@
 from chat import Chat
+from datetime import datetime
+import os
 
 
 def error_correction_agent(user_input, code, error_message):
@@ -8,7 +10,7 @@ def error_correction_agent(user_input, code, error_message):
         Output: Corrected Natural language instructions
     """
     
-    begin_messages = """
+    begin_messages = f"""
         Role: Linux Command Correction Agent
 
         You are a **Linux Command Correction Agent**.
@@ -41,11 +43,37 @@ def error_correction_agent(user_input, code, error_message):
                 
                 ...
         ```
+
+        ## Information You Have:
+        - Current Directory: {get_current_path()}
+        - Current Time: {get_current_time()}
+
     """
+
+    input_message = f"""
+        ## Previous User Input:
+        {user_input}
+
+        ## Previous Commands:
+        {code}
+
+        ## Error Message:
+        {error_message}
+    
+    """
+    ## Original User Input:
     
     chat_agent = Chat(begin_messages)
-    response = chat_agent.chat_context(user_input)
+    response = chat_agent.chat_context(input_message)
     return response
+
+# get current path
+def get_current_path():
+    return os.getcwd()
+
+# get current system time
+def get_current_time():
+    return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
 
 def chat_loop():

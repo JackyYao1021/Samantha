@@ -63,7 +63,7 @@ def process(initial_input, terminal_history):
 
     confirmation_input = input().strip().lower()
 
-    if confirmation_input == 'y':
+    if confirmation_input in ['y', 'yes', 'sure', 'go ahead', 'Y']:
         ########## execute commands ##########
         # TODO: figure out if need to change the directory after executing commands?
         result = run_commands(commands)
@@ -74,7 +74,7 @@ def process(initial_input, terminal_history):
             error_message = result["output"]
             print(f"Error Message:\n{error_message}\n")
             print("Dealing with the error...")
-            intent = error_correction_agent(initial_input, commands, error_message)
+            intent = error_correction_agent(clarified_msg, commands, error_message)
             # print(intent)
             response = natural_language_to_command_agent(intent)
             # print("agent4: Error Correction Response:\n", commands)

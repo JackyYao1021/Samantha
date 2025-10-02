@@ -13,9 +13,13 @@ We are a team called *NottingDuck* with following three members:
 ### 1. 📌 Project Overview
 
 **Samantha** is a natural language powered assistant that helps you interact with your system more easily.  
-It can be used in your terminal on **openEuler** (and other Linux systems), which will translate natural language into executable commands, and execute them.  
+It can be used in your terminal on **openEuler** (and other Linux systems), which will translate natural language into executable commands, and execute them.
 
-### 2. 🏗️ System Architecture
+### 2. 📖 User Guide
+
+Please go to [how_to_use_Samantha](readme_help/how_to_use_Samantha.md) for detailed guidance :)
+
+### 3. 🏗️ System Architecture
 
 Our system follows a multi-agent architecture that processes user natural language requests step by step until successful execution. The workflow ensures clarity, safety, and self-correction throughout the process.
 
@@ -83,24 +87,3 @@ To support these future features, we have already made several key architectural
 - **Logging System:** A complete logging mechanism has been implemented to record user interactions, execution results, and error information. This provides the groundwork for context-aware decision-making, adaptive learning, and self-improvement.
 - **Vector Space Database:** The architecture includes a reserved vector space database interface, enabling future integration of semantic search for PDF files and images.
 - **Tool Integration Pathways:** The system design anticipates the inclusion of external tools, allowing the assistant to extend its capabilities beyond basic shell commands. This system will be achieved by using LangGraph.
-
-
-## Step-by-step running instructions
-
-
-
-运行指引, 先进入容器，然后创建虚拟环境
-```
-python3 -m venv venv
-source venv/bin/activate
-pip install -r requirements.txt
-```
-
-启动容器 `docker start oe`
-进入容器 `docker exec -it oe bash`
-离开容器 `exit`
-关闭容器 `docker stop oe`
-激活虚拟环境 `source venv/bin/activate`
-退出虚拟环境 `deactivate`
-
-可运行代码都在work文件夹里面，能直接在docker中运行调用

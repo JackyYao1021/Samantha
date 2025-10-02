@@ -1,9 +1,7 @@
 # 🪄 Samantha Assistant
 
-Samantha is a natural language powered assistant that helps you interact with your system more easily.  
-It can be used in your terminal on **openEuler** (and other Linux systems), which will translate natural language into executable commands, and execute them.  
+Follow the steps below to set up Samantha in your new environment.
 
----
 
 ## 🚀 Getting Started
 

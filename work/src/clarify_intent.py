@@ -38,7 +38,7 @@ You are a **Linux Task Clarification Agent**. Your job is to check whether the u
    Once you have enough information, output **a single JSON object** and **nothing else**:
    {{
      "is_jump": true/false,   // true = end in the destination/completion directory; false = end in the starting directory
-     "requirement_summary": "<one or two precise English sentences summarizing the user's goal and key parameters in this dialogue>"
+     "requirement_summary": "<one or two precise English sentences summarizing the user's goal and key parameters in this dialogue, you don't need to generate the full command>"
    }}
    ⚠️ Important: In the JSON output, do not use pronouns or vague references like "there" or "that directory." Always write the full absolute or relative path explicitly.
 
@@ -121,9 +121,11 @@ You are a **Linux Task Clarification Agent**. Your job is to check whether the u
         requirement_summary: str = data["requirement_summary"]
     except json.JSONDecodeError as e:
         print("====failed in json decoding====\n", e)
+        print(reply)
         exit(1)
     except KeyError as e:
         print(f"====failed in json decoding====\n: {e}")
+        print(reply)
         exit(1)
 
     return is_jump, requirement_summary

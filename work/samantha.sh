@@ -1,7 +1,9 @@
 samantha() {
-    # todo: attach the history in the terminal
+    SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-    python3 /work/src/samantha.py "$*"
+    python3 "$SCRIPT_DIR/src/samantha.py" "$*"
+
+    # python3 /work/src/samantha.py "$*"
 
     # default - change the path according to the executed commands
     if [ -f /tmp/current_dir.json ]; then

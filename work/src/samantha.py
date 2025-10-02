@@ -35,7 +35,6 @@ def process(initial_input, terminal_history):
     change_dir, clarified_msg = clarify_user_intent(initial_input)
 
     # print("agent0: Clarified Message:\n", clarified_msg)
-    # print("agent0: change dir?:\n", change_dir)
     print("Trying to understand your request...")
 
     ######### go to agent1 ##########
@@ -88,6 +87,7 @@ def process(initial_input, terminal_history):
             print(intent.strip().strip("`").strip())
             confirmation_input = input().strip().lower()
             if confirmation_input == 'y':
+                print("commands to execute:", commands)
                 result = run_commands(commands) 
             else:
                 result = {"success": False, "output": "Command execution cancelled by user.", "current_dir": os.getcwd()}
@@ -103,8 +103,11 @@ def process(initial_input, terminal_history):
         print("-----Output-----\n", result["output"])
 
         if change_dir:
-            # save the current directory to a file
-            json.dump({"current_dir": result["current_dir"]}, open("/tmp/current_dir.json", "w"))
+            with open("/tmp/current_dir.json", "w") as f:
+                json.dump({"current_dir": result["current_dir"]}, f)
+        else:
+            with open("/tmp/current_dir.json", "w") as f:
+                json.dump({"current_dir": get_current_path()}, f)
 
     else:
         print("Command execution cancelled by user.")
@@ -117,6 +120,10 @@ if __name__ == "__main__":
     if user_command:  # only execute if user_command is not empty
         process(user_command, [])
     else:
+        with open("/tmp/current_dir.json", "w") as f:
+            json.dump({
+                "current_dir": get_current_path()
+            }, f)
         print("Error: empty command provided.\n"
                 "Usage: samantha <command>\n"
                 "Example: samantha create a file named test.txt in the current directory and write hello world to it")

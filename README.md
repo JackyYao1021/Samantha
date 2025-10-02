@@ -82,7 +82,7 @@ Our current version of **Samantha** successfully implements all core features fr
 *Figure：example of self correction.*
 - ✅ **Natural Conversation Flow:** Samantha can handle follow-up questions and clarifications. In case the request is not clear, she will ask for clarification until she exactly get your point. If during the conversion you don't want her to execute the request anymore, she will simply do nothing and exit.
 ![keyword search](readme_help/t3_example2.png)
-*Figure：example of keyword search - find all the files include "openai".*
+*Figure：example of asking for clarification.*
 
 Due to time constraints, there are Tier 3 features (**agentic capabilities**, **organizational 
 Intelligence**) that have not yet fully been implemented. However, we have already reserved internal pipelines for future Tier 3 development, including logging mechanisms and other extensions. More details are discussed in the next section.

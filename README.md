@@ -8,6 +8,10 @@ We are a team called *NottingDuck* with following three members:
 - [Yujie Yao](https://github.com/JackyYao1021)
 - [Ningbo Wei](https://github.com/NingboWEI)
 
+##  📖 User Guide
+
+Please go to [how_to_use_Samantha](readme_help/how_to_use_Samantha.md) for detailed guidance :)
+
 ## Project description
 
 ### 1. 📌 Project Overview
@@ -15,11 +19,7 @@ We are a team called *NottingDuck* with following three members:
 **Samantha** is a natural language powered assistant that helps you interact with your system more easily.  
 It can be used in your terminal on **openEuler** (and other Linux systems), which will translate natural language into executable commands, and execute them.
 
-### 2. 📖 User Guide
-
-Please go to [how_to_use_Samantha](readme_help/how_to_use_Samantha.md) for detailed guidance :)
-
-### 3. 🏗️ System Architecture
+### 2. 🏗️ System Architecture
 
 Our system follows a multi-agent architecture that processes user natural language requests step by step until successful execution. The workflow ensures clarity, safety, and self-correction throughout the process.
 
@@ -87,7 +87,7 @@ Our current version of **Samantha** successfully implements all core features fr
 Due to time constraints, there are Tier 3 features (**agentic capabilities**, **organizational 
 Intelligence**) that have not yet fully been implemented. However, we have already reserved internal pipelines for future Tier 3 development, including logging mechanisms and other extensions. More details are discussed in the next section.
 
-### 3. 🚀 Future Work
+## 🚀 Future Work
 
 Although our current implementation focuses on Tier 1 and Tier 2 functionality, we have laid a solid foundation for future development towards these Tier 3 and more advanced intelligent capabilities.
 

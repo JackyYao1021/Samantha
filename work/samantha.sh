@@ -1,3 +1,5 @@
+export PS1="(samantha) $PS1"
+
 samantha() {
     # todo: attach the history in the terminal
 
@@ -14,3 +16,10 @@ samantha() {
         fi
     fi
 }
+
+quit_samantha() {
+    export PS1="${PS1/(samantha) /}"
+    unset _SAMANTHA_OLD_PS1
+    unset -f samantha
+    unset -f quit_samantha
+    }

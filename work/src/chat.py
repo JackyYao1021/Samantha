@@ -1,4 +1,4 @@
-# chat类函数，用于调用openai的chat接口
+# chat module, handles chat interactions with OpenAI and Qwen models
 
 import json
 from openai import OpenAI

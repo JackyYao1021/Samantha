@@ -35,6 +35,7 @@ def process(initial_input, terminal_history):
     change_dir, clarified_msg = clarify_user_intent(initial_input)
 
     # print("agent0: Clarified Message:\n", clarified_msg)
+    # print("agent0: change dir?:\n", change_dir)
     print("Trying to understand your request...")
 
     ######### go to agent1 ##########

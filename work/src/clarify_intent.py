@@ -111,10 +111,10 @@ You are a **Linux Task Clarification Agent**. Your job is to check whether the u
         user_turn = input("User: ")
 
     reply = reply.strip()
-    # 匹配 ```json ... ``` 或 ``` ... ```
+    # matching ```json ... ``` or ``` ... ```
     reply = re.sub(r"^```(?:json)?\s*|\s*```$", "", reply.strip(), flags=re.IGNORECASE)
 
-    # 2. 尝试解析 JSON
+    # 2. decode JSON
     try:
         data = json.loads(reply)
         is_jump: bool = data["is_jump"]

@@ -16,8 +16,7 @@ cd track1_nottingDuck/work
 
 ### Step 3. Run the setup script
 ```bash
-chmod +x setup.sh
-./setup.sh
+source setup.sh
 ```
 #### The setup script will:
 

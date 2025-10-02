@@ -10,11 +10,10 @@ We are a team called *NottingDuck* with following three members:
 
 ## Project description
 
-### 📌 Project Overview
+### 1. 📌 Project Overview
 
-**Samantha** is an intelligent terminal assistant that bridges the gap between human intent and system commands in the **openEuler OS** (a Linux distribution developed by Huawei, based on the Linux kernel). 
-
-Instead of memorizing complex CLI syntax, users can express their goals in natural language, and Samantha interprets, executes, and confirms actions automatically. Our goal is to make terminal interaction more intuitive, efficient, and human-centric.
+**Samantha** is a natural language powered assistant that helps you interact with your system more easily.  
+It can be used in your terminal on **openEuler** (and other Linux systems), which will translate natural language into executable commands, and execute them.  
 
 ### 2. 🏗️ System Architecture
 
@@ -41,7 +40,7 @@ In addition, we designed an **efficient interaction mechanism**: by configuring 
 
 ![efficient interaction](readme_help/simple.png)
 
-### ✅ Current Implementation & Results
+### 3. ✅ Current Implementation & Results
 
 Our current version of **Samantha** successfully implements all core features from **Tier 1** and **Tier 2**, providing a robust and intelligent natural language interface for the openEuler terminal.
 ![efficient interaction](readme_help/overall_progress.png)
@@ -72,7 +71,7 @@ Our current version of **Samantha** successfully implements all core features fr
 
 Due to time constraints, Tier 3 features such as **content-aware search**, **agentic capabilities**, and **natural conversation flow** are not yet fully implemented. However, we have already reserved internal pipelines for future Tier 3 development, including logging mechanisms and other extensions. More details are discussed in the next section.
 
-## 🚀 Future Work
+### 3. 🚀 Future Work
 
 Although our current implementation focuses on Tier 1 and Tier 2 functionality, we have laid a solid foundation for future development towards Tier 3 and more advanced intelligent capabilities.
 
@@ -84,10 +83,6 @@ To support these future features, we have already made several key architectural
 - **Logging System:** A complete logging mechanism has been implemented to record user interactions, execution results, and error information. This provides the groundwork for context-aware decision-making, adaptive learning, and self-improvement.
 - **Vector Space Database:** The architecture includes a reserved vector space database interface, enabling future integration of semantic search for PDF files and images.
 - **Tool Integration Pathways:** The system design anticipates the inclusion of external tools, allowing the assistant to extend its capabilities beyond basic shell commands. This system will be achieved by using LangGraph.
-
-
-
-
 
 
 ## Step-by-step running instructions

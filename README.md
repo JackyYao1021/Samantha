@@ -19,9 +19,19 @@ Please go to [how_to_use_Samantha](readme_help/how_to_use_Samantha.md) for detai
 **Samantha** is a natural language powered assistant that helps you interact with your system more easily.  
 It can be used in your terminal on **openEuler** (and other Linux systems), which will translate natural language into executable commands, and execute them.
 
+The current default model is the host's **Ollama `qwen3:4b`**. Direct host
+execution connects to `127.0.0.1:11434`; Docker Compose connects to
+`host.docker.internal:11434`. Azure fallback must be explicitly enabled.
+
 ### 2. 🏗️ System Architecture
 
 Our system follows a multi-agent architecture that processes user natural language requests step by step until successful execution. The workflow ensures clarity, safety, and self-correction throughout the process.
+
+The workflow is now orchestrated by **LangGraph**. `work/src/workflow.py` defines
+typed state, conditional routing, clarification/approval interrupts, and the
+bounded correction loop. Existing agent prompts and the `samantha <request>`
+terminal entry point are retained. See [the LangGraph workflow guide](readme_help/langgraph_workflow.md)
+for the graph, state lifecycle, tests, and current limitations.
 
 ![Overall system design](readme_help/Group_10.png)
 
@@ -84,19 +94,20 @@ Our current version of **Samantha** successfully implements all core features fr
 ![keyword search](readme_help/t3_example2.png)
 *Figure：example of asking for clarification.*
 
-Due to time constraints, there are Tier 3 features (**agentic capabilities**, **organizational 
-Intelligence**) that have not yet fully been implemented. However, we have already reserved internal pipelines for future Tier 3 development, including logging mechanisms and other extensions. More details are discussed in the next section.
+Tier 3 features such as organizational intelligence, persistent memory, and
+semantic search are still future work. LangGraph provides an explicit workflow
+on which those extensions can be built.
 
 ## 🚀 Future Work
 
 Although our current implementation focuses on Tier 1 and Tier 2 functionality, we have laid a solid foundation for future development towards these Tier 3 and more advanced intelligent capabilities.
 
-To support these future features, we have already made several key architectural preparations, some have already achieved:
+The following extensions are planned:
 
 ![Future Architecture](readme_help/Group_12.png)
 *Figure：Architecture for the future development*
 
-- **Logging System:** A complete logging mechanism has been implemented to record user interactions, execution results, and error information. This provides the groundwork for context-aware decision-making, adaptive learning, and self-improvement.
-- **Vector Space Database:** The architecture includes a reserved vector space database interface, enabling future integration of semantic search for PDF files and images.
-- **Tool Integration Pathways:** The system design anticipates the inclusion of external tools, allowing the assistant to extend its capabilities beyond basic shell commands. This system will be achieved by using LangGraph.
+- **Persistent logging and checkpoints:** The current graph keeps checkpoints in memory for one process. Durable interaction, execution, and error logs still need implementation.
+- **Vector database:** Semantic search for PDFs and images is planned; no vector database adapter is implemented yet.
+- **External tools:** LangGraph orchestration is implemented. Additional tools beyond the Bash executor can be introduced through dedicated nodes.
 

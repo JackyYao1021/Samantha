@@ -1,18 +1,22 @@
+_SAMANTHA_SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+
 samantha() {
-    SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+    local script_dir state_file target_dir status
+    script_dir="$_SAMANTHA_SCRIPT_DIR"
+    state_file="$(mktemp "${TMPDIR:-/tmp}/samantha.XXXXXX")" || return
 
-    python3 "$SCRIPT_DIR/src/samantha.py" "$*"
+    if SAMANTHA_STATE_FILE="$state_file" python3 "$script_dir/src/samantha.py" "$*"; then
+        status=0
+    else
+        status=$?
+    fi
 
-    # python3 /work/src/samantha.py "$*"
-
-    # default - change the path according to the executed commands
-    if [ -f /tmp/current_dir.json ]; then
-        # extract path from json file
-        target_dir=$(grep -o '"current_dir": *"[^"]*"' /tmp/current_dir.json | sed 's/.*"current_dir": *"\([^"]*\)".*/\1/')
-        
-        # jump to the target directory if it exists
+    if [ "$status" -eq 0 ] && [ -s "$state_file" ]; then
+        target_dir=$(python3 -c 'import json, sys; print(json.load(open(sys.argv[1]))["current_dir"])' "$state_file")
         if [ -n "$target_dir" ] && [ -d "$target_dir" ]; then
-            cd "$target_dir" || return
+            cd -- "$target_dir" || status=$?
         fi
     fi
+    rm -f -- "$state_file"
+    return "$status"
 }

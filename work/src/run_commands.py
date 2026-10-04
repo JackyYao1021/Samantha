@@ -4,10 +4,10 @@ import os
 def run_commands(commands):
     """
     run a list of shell commands sequentially and return their combined output and success status.
-    
+
     parameters:
         commands (list[str]): terminal commands, e.g., ["cd /tmp", "ls -l"]
-    
+
     returns:
         dict: {
             "success": bool,  # if all commands executed successfully
@@ -15,17 +15,16 @@ def run_commands(commands):
         }
     """
     current_dir = os.getcwd()
-    
+
     try:
         # concatenate commands with '&&' to ensure sequential execution
         script = " && ".join(commands + ["pwd"])
-        
+
         # use bash to run the commands
         result = subprocess.run(
-            script,
-            shell=True,
+            [os.environ.get("SAMANTHA_BASH", "/bin/bash"), "-c", script],
+            shell=False,
             text=True,
-            executable="/bin/bash", 
             capture_output=True
         )
 
@@ -42,7 +41,7 @@ def run_commands(commands):
             command_output = result.stdout
 
         output = command_output + result.stderr
-        
+
         return {
             "success": success,
             "current_dir": current_dir,
@@ -54,4 +53,4 @@ def run_commands(commands):
             "current_dir": current_dir,
             "output": f"Exception occurred: {str(e)}"
         }
-    
+

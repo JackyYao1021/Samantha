@@ -1,11 +1,11 @@
 import sys
-import os
+from pathlib import Path
 from datetime import datetime
-from chat import Chat
+from chat import request_text
 
 # get current path
 def get_current_path():
-    return os.getcwd()
+    return Path.cwd().as_posix()
 
 # get current system time
 def get_current_time():
@@ -77,9 +77,7 @@ def parse_user_intent(user_input):
         - Current Time: {current_time}
 
     """
-    chat_agent = Chat(begin_messages=begin_messages)
-    intent_breakdown = chat_agent.chat_context(user_input)
-    return intent_breakdown
+    return request_text(begin_messages, user_input)
 
 if __name__ == "__main__":
     input_list = [

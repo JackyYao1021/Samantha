@@ -1,6 +1,6 @@
-from chat import Chat
+from chat import request_text
 from datetime import datetime
-import os
+from pathlib import Path
 
 
 def error_correction_agent(user_input, code, error_message):
@@ -63,13 +63,11 @@ def error_correction_agent(user_input, code, error_message):
     """
     ## Original User Input:
     
-    chat_agent = Chat(begin_messages)
-    response = chat_agent.chat_context(input_message)
-    return response
+    return request_text(begin_messages, input_message)
 
 # get current path
 def get_current_path():
-    return os.getcwd()
+    return Path.cwd().as_posix()
 
 # get current system time
 def get_current_time():

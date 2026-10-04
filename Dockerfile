@@ -1,12 +1,16 @@
-FROM openeuler/openeuler:latest
+FROM openeuler/openeuler:24.03-lts-sp3
 
 SHELL ["/bin/bash", "-c"]
-RUN /usr/bin/dnf update -y
-RUN /usr/bin/dnf install -y python3 nodejs npm curl go sqlite htop
-RUN curl https://sh.rustup.rs -sSf | sh -s -- -y
-RUN . "$HOME/.cargo/env"
-RUN /usr/bin/dnf group install -y "Development Tools"
+ENV PYTHONUNBUFFERED=1 PYTHONDONTWRITEBYTECODE=1
+RUN dnf install -y python3 python3-pip bash curl findutils coreutils grep sed \
+    && dnf clean all
+RUN python3 -c 'import sys; assert sys.version_info >= (3, 10), "Python 3.10+ required"'
+
+COPY work/requirements.txt /tmp/samantha-requirements.txt
+RUN python3 -m pip install --no-cache-dir -r /tmp/samantha-requirements.txt
 
 WORKDIR /work
+COPY work/ /work/
+RUN printf '%s\n' 'source /work/samantha.sh' >> /root/.bashrc
 
-ENTRYPOINT /bin/sh
+CMD ["/bin/bash"]

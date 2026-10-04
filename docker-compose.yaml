@@ -5,7 +5,16 @@ services:
     tty: true
     stdin_open: true
     environment:
-      AZURE_OPENAI_API_KEY: ${AZURE_OPENAI_API_KEY}
+      QWEN_BASE_URL: ${QWEN_BASE_URL:-http://host.docker.internal:11434/v1}
+      QWEN_MODEL: ${QWEN_MODEL:-qwen3:4b}
+      QWEN_API_KEY: ${QWEN_API_KEY:-ollama}
+      QWEN_REASONING_EFFORT: ${QWEN_REASONING_EFFORT:-none}
+      QWEN_TIMEOUT: ${QWEN_TIMEOUT:-120}
+      SAMANTHA_AZURE_FALLBACK: ${SAMANTHA_AZURE_FALLBACK:-false}
+      AZURE_OPENAI_API_KEY: ${AZURE_OPENAI_API_KEY:-}
+      AZURE_OPENAI_ENDPOINT: ${AZURE_OPENAI_ENDPOINT:-https://sencemaking.openai.azure.com/}
+      AZURE_OPENAI_DEPLOYMENT: ${AZURE_OPENAI_DEPLOYMENT:-gpt-4o-mini}
+      AZURE_OPENAI_API_VERSION: ${AZURE_OPENAI_API_VERSION:-2024-12-01-preview}
     volumes:
       - ./work:/work
     extra_hosts:

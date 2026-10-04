@@ -1,0 +1,7 @@
+.git
+.venv
+**/__pycache__
+work/.test-results
+work/ollama-smoke-*
+readme_help
+presentation_slide.pdf

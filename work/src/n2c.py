@@ -43,7 +43,7 @@ def natural_language_to_command_agent(user_input):
     """
 
     
-    chat_agent = Chat(begin_messages)
+    chat_agent = Chat(begin_messages, response_format={"type": "json_object"})
     response = chat_agent.chat_context(user_input)
     return response
     

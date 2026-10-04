@@ -1,32 +1,27 @@
-To directly control the current terminal, we use a shell function to call the python program and handle its outputs.
+# Terminal shell function
 
-#### The following steps show how to run the shell function in your terminal:
+Python runs in a child process, so it cannot change the working directory of
+its calling terminal. Samantha uses a Bash function to invoke Python and apply
+the resulting directory in the parent shell.
 
-1. In your docker container, run: ```vi ~/.bashrc```
+Install dependencies and register the function using the
+[setup guide](how_to_use_Samantha.md). If dependencies are already installed,
+load the existing wrapper directly:
 
-    It will open the vim editor. Copy and paste the following contents to the end of your bashrc file:
+```bash
+source /absolute/path/to/Samantha/work/samantha.sh
+samantha go to my home directory
+```
 
-    ```bash
-    samantha() {
-        python /work/src/samantha.py "$*"
+The setup script adds an absolute source path to `~/.bashrc`, so future Bash
+sessions load the function automatically. There is no need to copy a separate
+function implementation into `.bashrc`.
 
-        # default - change the path according to the executed commands
-        if [ -f /tmp/current_dir.json ]; then
-            # extract path from json file
-            target_dir=$(grep -o '"current_dir": *"[^"]*"' /tmp/current_dir.json | sed 's/.*"current_dir": *"\([^"]*\)".*/\1/')
-            
-            # jump to the target directory if it exists
-            if [ -n "$target_dir" ] && [ -d "$target_dir" ]; then
-                cd "$target_dir" || return
-            fi
-        fi
-    }
-    ```
-    __Your may need to change `/work/run/samantha.py` to your own path of the python file.__
+The wrapper creates a unique temporary file for each call and passes its path
+through `SAMANTHA_STATE_FILE`. Python initializes it with the starting directory
+and writes the final directory after the LangGraph workflow completes. Bash
+reads the JSON, changes directories after a successful invocation when needed,
+and removes the file. Cancellation retains the starting directory.
 
-    _**Tips:** in vim, type `i` to insert contents, type `Esc` and `:wq` to save and exit._
-
-2. Run: `source ~/.bashrc`
-3. After that, you can use `samantha` in your terminal, which will directly run the python file in the given path and jump to the final path if needed. 
-
-    For example: ```samantha take me to home``` will execute `cd ~` in the terminal and take you to the home directory. 
+See [the LangGraph workflow guide](langgraph_workflow.md) for graph routing,
+confirmation, correction, and checkpoint behavior.

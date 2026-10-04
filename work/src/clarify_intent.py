@@ -1,134 +1,116 @@
 from chat import Chat
 import re
-import sys
-import os
+from pathlib import Path
 from datetime import datetime
-import json
+from model_output import parse_json_object, strip_code_fence
 
 # get current path
 def get_current_path():
-    return os.getcwd()
+    return Path.cwd().as_posix()
 
 # get current system time
 def get_current_time():
     return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
-def clarify_user_intent(user_input):
-    current_path = get_current_path()
-    current_time = get_current_time()
-    begin_messages = f"""
-# Role: Clarification Agent
+CLARIFICATION_RESPONSE_FORMAT = {
+    "type": "json_schema",
+    "json_schema": {
+        "name": "clarification",
+        "strict": True,
+        "schema": {
+            "type": "object",
+            "properties": {
+                "question": {"type": "string"},
+                "requirement_summary": {"type": "string"},
+                "is_jump": {"type": "boolean"},
+                "cancelled": {"type": "boolean"},
+            },
+            "required": ["question", "requirement_summary", "is_jump", "cancelled"],
+            "additionalProperties": False,
+        },
+    },
+}
 
-You are a **Linux Task Clarification Agent**. Your job is to check whether the user's natural language request is **clear and executable**. If it isn't (e.g., missing target file/dir name or key parameters), ask **only one** specific follow-up question per turn until it is executable.
 
-## Hard Rules (must follow)
-1) **Default path for file operations**  
-   When the request is a file/directory operation but **no path is provided**, **assume the current directory ({current_path})**. **Do not** ask further about paths.  
-   - Examples of file/dir operations: create, read, write, append, rename, delete, copy/move **within the current directory**, etc.
+def clarification_prompt():
+    return f"""You clarify Linux terminal tasks. Return only a JSON object with four fields:
+question (string), requirement_summary (string), is_jump (boolean), cancelled (boolean).
 
-2) **Operations involving other directories must confirm final location**  
-   If the operation **involves changing directories or acting in a different path** (e.g., `cd` elsewhere, moving/copying to another path, creating/processing in a specified external path), and the user **has not said** whether to **end in the starting directory** or **stay in the destination/completion directory**, ask **only this** confirmation:  
-   “After completion, should we **stay in the starting directory** or **stay in the destination (completion) directory**?”
+- If essential information is missing, ask one focused question in question.
+  Set requirement_summary="", is_jump=false, cancelled=false.
+  For creating a file or directory, its name is essential. Do not invent names.
+- If the task is complete, set question="", cancelled=false, and describe the goal
+  in requirement_summary using precise English and explicit paths or file names.
+- If the user asks to stop or cancel, set cancelled=true, both strings empty,
+  and is_jump=false.
+- For file operations with no path, assume the current directory. Do not ask for a path.
+- For pure navigation, stay in the destination (is_jump=true) without asking.
+- For a task acting in another directory, ask whether to stay in the starting or
+  destination directory only if the user has not already specified the final directory.
+- is_jump=false means stay in the starting directory; true means stay at the destination.
+- Do not execute tasks, generate commands, or return environment metadata as your answer.
 
-   2.5) **Exception: pure directory navigation**  
-   If the user's request is **only to change/moving directories** (e.g., “go to /opt/tools”, “cd /var/logs”) **without any additional actions**, then **do not ask for confirmation**.  
-   In this case, **default behavior is to stay in the destination directory** (`"is_jump": true`).
+Examples:
+User: Create a file.
+Answer: {{"question":"What should the file be named?","requirement_summary":"","is_jump":false,"cancelled":false}}
+User: Create test.txt here and stay here.
+Answer: {{"question":"","requirement_summary":"Create test.txt in the current directory {get_current_path()} and stay there.","is_jump":false,"cancelled":false}}
+User: Go to /tmp.
+Answer: {{"question":"","requirement_summary":"Change directory to /tmp and stay in /tmp.","is_jump":true,"cancelled":false}}
 
-3) **Output format (when info is sufficient)**  
-   Once you have enough information, output **a single JSON object** and **nothing else**:
-   {{
-     "is_jump": true/false,   // true = end in the destination/completion directory; false = end in the starting directory
-     "requirement_summary": "<one or two precise English sentences summarizing the user's goal and key parameters in this dialogue, you don't need to generate the full command>"
-   }}
-   ⚠️ Important: In the JSON output, do not use pronouns or vague references like "there" or "that directory." Always write the full absolute or relative path explicitly.
-
-4) **Irrelevant or termination signals**
-    If the user repeatedly provides responses unrelated to Linux tasks or explicitly indicates they want to stop / exit / no longer need help (e.g., “stop”, “quit”, “I don’t need this”, “leave me alone”), immediately stop the conversation and output exactly:
-    ```--end of chat--```
-    Do not attempt to clarify further or continue the dialogue.
-
-## Interaction Guidelines
-- Be polite and concise.
-- Ask **only one focused question** per turn.
-- Only ask when **necessary**; if Rule (1) applies, assume current directory and do not ask about paths.
-- If the user already specified the final location, **do not** ask again.
-
-## Judgment & Examples
-- **Example A (file operation, no path)**  
-  User: “Create a file named test.txt.”  
-  Handling: Treat as creating in {current_path}. Do not ask about path.  
-  Output (info sufficient):
-  {{
-    "is_jump": false,
-    "requirement_summary": "Create file test.txt in the current directory {current_path}"
-  }}
-
-- **Example B (file operation touching another directory, need final location)**  
-  User: “Move logs/app.log to /var/logs/app/.”  
-  Handling: Involves another directory; if final location unspecified → ask:  
-  You: “After completion, should we stay in the starting directory or stay in the destination directory?”  
-  User: “Stay in the destination directory.”  
-  Output:
-  {{
-    "is_jump": true,
-    "requirement_summary": "Move logs/app.log to /var/logs/app/ and end in the destination directory /var/logs/app/"
-  }}
-
-- **Example C (pure directory change)**  
-  User: “Go to /opt/tools and then list all files.”  
-  Handling: Handling: Pure navigation → **do not ask**.  
-  Output:
-  {{
-    "is_jump": true,
-    "requirement_summary": "Change to /opt/tools, list files, and stay in /opt/tools"
-  }}
-
-- **Example D (rename, no path)**  
-  User: “Rename report.md to report_final.md.”  
-  Handling: Treat as rename inside current directory {current_path}. Do not ask about path.  
-  Output:
-  {{
-    "is_jump": false,
-    "requirement_summary": "Rename report.md to report_final.md in the current directory"
-  }}
-
-## Information You Have
-- Current Working Directory: {current_path}
-- Current System Time: {current_time}
+Current directory: {get_current_path()}
+Current time: {get_current_time()}
 """
-    chat_agent = Chat(begin_messages=begin_messages)
-    user_turn = user_input
 
+
+def parse_clarification_reply(reply):
+    text = strip_code_fence(reply)
+    if text == "--end of chat--":
+        return {"cancelled": True}
+    if text.startswith(("{", "[")) or re.search(r'"is_jump"\s*:', text):
+        data = parse_json_object(text)
+        if "cancelled" in data and type(data["cancelled"]) is not bool:
+            raise ValueError("cancelled must be a boolean.")
+        if "question" in data and not isinstance(data["question"], str):
+            raise ValueError("question must be a string.")
+        if data.get("cancelled") is True:
+            return {"cancelled": True}
+        if data.get("question"):
+            question = data["question"]
+            if not question.strip():
+                raise ValueError("question must be a non-empty string.")
+            return {"question": question}
+        if type(data.get("is_jump")) is not bool:
+            raise ValueError("is_jump must be a boolean.")
+        summary = data.get("requirement_summary")
+        if not isinstance(summary, str) or not summary.strip():
+            raise ValueError("requirement_summary must be a non-empty string.")
+        return {"is_jump": data["is_jump"], "requirement_summary": summary}
+    return {"question": text}
+
+
+def clarify_intent_once(user_input, history=None):
+    """One model turn; LangGraph owns clarification history and user input."""
+    chat_agent = Chat(begin_messages=clarification_prompt(), response_format=CLARIFICATION_RESPONSE_FORMAT)
+    chat_agent.messages.extend(history or [])
+    return parse_clarification_reply(chat_agent.chat_context(user_input))
+
+
+def clarify_user_intent(user_input):
+    """Compatibility helper for running this agent on its own."""
+    history = []
     while True:
-        reply = chat_agent.chat_context(user_turn)
-        if "is_jump" in reply:
-            break
-        if "end of chat" in reply:
-            print("Thank you for your response. If you have any questions or tasks in the future, feel free to ask!")
-            exit(0)
-
-        print("Agent:", reply.strip())
-        user_turn = input("User: ")
-
-    reply = reply.strip()
-    # matching ```json ... ``` or ``` ... ```
-    reply = re.sub(r"^```(?:json)?\s*|\s*```$", "", reply.strip(), flags=re.IGNORECASE)
-
-    # 2. decode JSON
-    try:
-        data = json.loads(reply)
-        is_jump: bool = data["is_jump"]
-        requirement_summary: str = data["requirement_summary"]
-    except json.JSONDecodeError as e:
-        print("====failed in json decoding====\n", e)
-        print(reply)
-        exit(1)
-    except KeyError as e:
-        print(f"====failed in json decoding====\n: {e}")
-        print(reply)
-        exit(1)
-
-    return is_jump, requirement_summary
+        response = clarify_intent_once(user_input, history)
+        if response.get("cancelled"):
+            raise SystemExit(0)
+        if "question" not in response:
+            return response["is_jump"], response["requirement_summary"]
+        print("Agent:", response["question"])
+        history.extend([
+            {"role": "user", "content": user_input},
+            {"role": "assistant", "content": response["question"]},
+        ])
+        user_input = input("User: ")
 
 
 if __name__ == "__main__":

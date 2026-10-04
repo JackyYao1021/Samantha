@@ -1,7 +1,7 @@
 import sys
-import os
+from pathlib import Path
 from datetime import datetime
-from chat import Chat
+from chat import request_text
 
 # User Confirmation Agent  
 # Purpose: Summarize the implementation steps of the abstracted commands, highlight potential risks, and ask for user confirmation  
@@ -65,13 +65,11 @@ def code_confrim(input_code_string_list):
 
     """
 
-    chat_agent = Chat(begin_messages=begin_messages)
-    confirm_note = chat_agent.chat_context(str(input_code_string_list))
-    return confirm_note
+    return request_text(begin_messages, str(input_code_string_list))
 
 # get current path
 def get_current_path():
-    return os.getcwd()
+    return Path.cwd().as_posix()
 
 # get current system time
 def get_current_time():

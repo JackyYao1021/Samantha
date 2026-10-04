@@ -1,131 +1,106 @@
-from intent_explain import *
-from code_confrimation import *
-from clarify_intent import *
-from n2c import *
-from run_commands import run_commands
-from error_correction import *
+"""Terminal adapter for the LangGraph workflow."""
+
 import json
+import os
+from pathlib import Path
 import sys
+import uuid
 
-def parse_commands(text):
-    """
-    Parse the response text to extract commands and explanation.
-    
-    parameters:
-        text (str): response text from the agent
-    
-    returns:
-        tuple: (list of commands, explanation string)
-    """
+from langgraph.types import Command
+
+from model_output import parse_commands  # Keep the previous import location available.
+from workflow import build_workflow, initial_state
+
+
+PROGRESS = {
+    "clarify": "Request clarity checked.",
+    "parse_intent": "Request understood.",
+    "generate_commands": "Commands generated.",
+    "execute": "Approved commands executed.",
+    "correct_error": "Error correction prepared.",
+}
+
+
+def write_current_dir(current_dir, path=None):
+    target = path or os.environ.get("SAMANTHA_STATE_FILE")
+    if target:
+        Path(target).write_text(json.dumps({"current_dir": current_dir}), encoding="utf-8")
+
+
+def process(initial_input, terminal_history=None, *, services=None, input_fn=None,
+            output_fn=None, state_file=None):
+    """Drive graph interrupts through terminal input and return the final state."""
+    input_fn = input_fn or input
+    output_fn = output_fn or print
+    state = initial_state(initial_input, terminal_history)
+    # Initialize the per-call output before any model call or user cancellation.
+    write_current_dir(state["initial_dir"], state_file)
+    graph = build_workflow(services)
+    config = {
+        "configurable": {"thread_id": uuid.uuid4().hex},
+        "recursion_limit": 100,
+    }
+    graph_input = state
+    output_fn("Checking the clarity of your request...")
+
     try:
-        data = json.loads(text)
-        commands = data.get("Commands", [])
-        explanation = data.get("Explanation", "")
-        return commands, explanation
-    except json.JSONDecodeError:
-        return [], "Failed to parse commands."
-
-def process(initial_input, terminal_history):
-
-    print("Checking the clarity of your request...")
-
-    change_dir = True
-
-    ######### use agent0 to check clearness ##########
-    change_dir, clarified_msg = clarify_user_intent(initial_input)
-
-    # print("agent0: Clarified Message:\n", clarified_msg)
-    print("Trying to understand your request...")
-
-    ######### go to agent1 ##########
-    intent = parse_user_intent(clarified_msg)
-
-    # print("agent1: Intent Breakdown:\n", intent)
-
-    print("Generating commands...")
-    ######### go to agent2 ##########
-    # TODO: include both terminal history and inline history
-    response = natural_language_to_command_agent(intent)
-
-    # print("agent2: N2C Response:\n", response)
-
-    commands, _ = parse_commands(response) # parse response to get commands
-    # print("agent2: Parsed Commands:\n", commands)
-
-    ######### go to agent3 ##########
-    if commands:
-        intent = code_confrim(commands)
-    else:
-        intent = "No commands generated."
-
-    # ask for user confirmation
-    print(intent.strip().strip("`").strip()) #"Confirmation Note:\n", 
-
-    confirmation_input = input().strip().lower()
-
-    if confirmation_input in ['y', 'yes', 'sure', 'go ahead', 'Y']:
-        ########## execute commands ##########
-        # TODO: figure out if need to change the directory after executing commands?
-        result = run_commands(commands)
-        attempt = 0
-        max_attempts = 3
-        while not result["success"] and attempt < max_attempts:
-            # print(result)
-            error_message = result["output"]
-            print(f"Error Message:\n{error_message}\n")
-            print("Dealing with the error...")
-            intent = error_correction_agent(clarified_msg, commands, error_message)
-            # print(intent)
-            response = natural_language_to_command_agent(intent)
-            # print("agent4: Error Correction Response:\n", commands)
-            commands, _ = parse_commands(response)
-            if commands:
-                intent = code_confrim(commands)
-            else:
-                intent = "No commands generated."
-                
-            print(intent.strip().strip("`").strip())
-            confirmation_input = input().strip().lower()
-            if confirmation_input == 'y':
-                # print("commands to execute:", commands)
-                result = run_commands(commands) 
-            else:
-                result = {"success": False, "output": "Command execution cancelled by user.", "current_dir": os.getcwd()}
+        while True:
+            pending = None
+            for event in graph.stream(graph_input, config, stream_mode="updates"):
+                if "__interrupt__" in event:
+                    pending = event["__interrupt__"][0].value
+                    continue
+                for node, update in event.items():
+                    if node in PROGRESS and update.get("status") != "failed":
+                        output_fn(PROGRESS[node])
+                    if node == "execute" and update.get("error"):
+                        output_fn(f"Error Message:\n{update['error']}")
+            if pending is None:
+                state = dict(graph.get_state(config).values)
                 break
-            attempt += 1
-            
-        if result and result["success"]:
-            print("Commands executed successfully ^-^ ")   
-        else:
-            print(f"Command execution unsuccessful.\nError Message:\n{result['output']}")
-            
-        # print("Success:", result["success"])
-        print("-----Output-----\n", result["output"])
+            output_fn(pending["message"].strip().strip("`").strip())
+            if pending["kind"] == "confirmation":
+                output_fn("-----Commands-----")
+                for command in pending["commands"]:
+                    output_fn(command)
+                answer = input_fn("Proceed? (y/n): ")
+            else:
+                answer = input_fn("User: ")
+            graph_input = Command(resume=answer)
+    except (EOFError, KeyboardInterrupt):
+        state = dict(graph.get_state(config).values)
+        state.update(status="cancelled", approved=False, current_dir=state["initial_dir"])
+    except Exception as exc:
+        state = dict(graph.get_state(config).values) or state
+        state.update(status="failed", approved=False, error=str(exc), current_dir=state["initial_dir"])
 
-        if change_dir:
-            with open("/tmp/current_dir.json", "w") as f:
-                json.dump({"current_dir": result["current_dir"]}, f)
-        else:
-            with open("/tmp/current_dir.json", "w") as f:
-                json.dump({"current_dir": get_current_path()}, f)
-
+    if state["status"] == "succeeded":
+        output_fn("Commands executed successfully ^-^")
+    elif state["status"] == "cancelled":
+        output_fn("Command execution cancelled by user.")
     else:
-        print("Command execution cancelled by user.")
+        output_fn(f"Command execution unsuccessful.\nError Message:\n{state['error']}")
+    if state["result"]:
+        output_fn(f"-----Output-----\n{state['result']['output']}")
+    write_current_dir(state["current_dir"], state_file)
+    return state
 
-# process("take me to the upper level directory and create a folder named test, then create a file named test.txt in it, write 'hello world' to the file, and finally display the content of the file", [])
+
+def main():
+    user_command = " ".join(sys.argv[1:]).strip()
+    if not user_command:
+        write_current_dir(os.getcwd())
+        print("Error: empty command provided.\n"
+              "Usage: samantha <command>\n"
+              "Example: samantha create a file named test.txt")
+        return 2
+    try:
+        state = process(user_command)
+    except Exception as exc:
+        print(f"Unable to start Samantha: {exc}", file=sys.stderr)
+        return 1
+    return 1 if state["status"] == "failed" else 0
+
 
 if __name__ == "__main__":
-
-    user_command = " ".join(sys.argv[1:]).strip()
-    if user_command:  # only execute if user_command is not empty
-        process(user_command, [])
-    else:
-        with open("/tmp/current_dir.json", "w") as f:
-            json.dump({
-                "current_dir": get_current_path()
-            }, f)
-        print("Error: empty command provided.\n"
-                "Usage: samantha <command>\n"
-                "Example: samantha create a file named test.txt in the current directory and write hello world to it")
-
-# process("delete the directory /work/test", [])
+    sys.exit(main())

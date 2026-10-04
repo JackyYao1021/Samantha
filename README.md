@@ -94,9 +94,19 @@ Our current version of **Samantha** successfully implements all core features fr
 ![keyword search](readme_help/t3_example2.png)
 *Figure：example of asking for clarification.*
 
-Tier 3 features such as organizational intelligence, persistent memory, and
-semantic search are still future work. LangGraph provides an explicit workflow
+Tier 3 features such as organizational intelligence and durable interaction
+memory are still future work. LangGraph provides an explicit workflow
 on which those extensions can be built.
+
+### File and Image Content Search
+
+The content pipeline now supports native text, DOCX, PDF pages, and images:
+Qwen2.5-VL generates descriptions/OCR, summaries, and tags; BGE-M3 encodes the
+content; Qdrant provides persistent retrieval and metadata filtering. Use
+`samantha content index <path>`, `samantha content search <query>`, and
+`samantha content ask <question>`. Run `samantha content doctor` to check models.
+See [the content search guide](readme_help/content_search.md) for installation,
+hybrid versus Ollama dense mode, configuration, and limitations.
 
 ## 🚀 Future Work
 
@@ -108,6 +118,6 @@ The following extensions are planned:
 *Figure：Architecture for the future development*
 
 - **Persistent logging and checkpoints:** The current graph keeps checkpoints in memory for one process. Durable interaction, execution, and error logs still need implementation.
-- **Vector database:** Semantic search for PDFs and images is planned; no vector database adapter is implemented yet.
+- **Vector database:** Qdrant-backed content search is implemented. Automated deletion/move synchronization and visual-similarity embeddings are future extensions.
 - **External tools:** LangGraph orchestration is implemented. Additional tools beyond the Bash executor can be introduced through dedicated nodes.
 

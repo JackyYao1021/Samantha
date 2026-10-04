@@ -5,7 +5,7 @@ samantha() {
     script_dir="$_SAMANTHA_SCRIPT_DIR"
     state_file="$(mktemp "${TMPDIR:-/tmp}/samantha.XXXXXX")" || return
 
-    if SAMANTHA_STATE_FILE="$state_file" python3 "$script_dir/src/samantha.py" "$*"; then
+    if SAMANTHA_STATE_FILE="$state_file" python3 "$script_dir/src/samantha.py" "$@"; then
         status=0
     else
         status=$?

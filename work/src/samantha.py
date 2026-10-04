@@ -87,6 +87,10 @@ def process(initial_input, terminal_history=None, *, services=None, input_fn=Non
 
 
 def main():
+    if len(sys.argv) > 1 and sys.argv[1] == "content":
+        from content_cli import main as content_main
+        write_current_dir(os.getcwd())
+        return content_main(sys.argv[2:])
     user_command = " ".join(sys.argv[1:]).strip()
     if not user_command:
         write_current_dir(os.getcwd())

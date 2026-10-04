@@ -18,3 +18,8 @@ tqdm==4.67.1
 typing-inspection==0.4.1
 typing_extensions==4.15.0
 urllib3==2.5.0
+qdrant-client==1.15.1
+PyMuPDF==1.26.4
+python-docx==1.2.0
+Pillow==11.3.0
+python-dotenv==1.1.1

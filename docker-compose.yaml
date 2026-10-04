@@ -1,6 +1,9 @@
 services:
   oe:
-    build : .
+    build:
+      context: .
+      args:
+        CONTENT_HYBRID: ${CONTENT_HYBRID:-false}
     container_name: "oe"
     tty: true
     stdin_open: true
@@ -15,7 +18,33 @@ services:
       AZURE_OPENAI_ENDPOINT: ${AZURE_OPENAI_ENDPOINT:-https://sencemaking.openai.azure.com/}
       AZURE_OPENAI_DEPLOYMENT: ${AZURE_OPENAI_DEPLOYMENT:-gpt-4o-mini}
       AZURE_OPENAI_API_VERSION: ${AZURE_OPENAI_API_VERSION:-2024-12-01-preview}
+      CONTENT_VL_BASE_URL: ${CONTENT_VL_BASE_URL:-http://host.docker.internal:11434/v1}
+      CONTENT_VL_MODEL: ${CONTENT_VL_MODEL:-qwen2.5vl:7b}
+      CONTENT_VL_API_KEY: ${CONTENT_VL_API_KEY:-ollama}
+      CONTENT_EMBEDDING_BACKEND: ${CONTENT_EMBEDDING_BACKEND:-ollama}
+      CONTENT_EMBEDDING_MODEL: ${CONTENT_EMBEDDING_MODEL:-}
+      CONTENT_EMBEDDING_DEVICE: ${CONTENT_EMBEDDING_DEVICE:-cpu}
+      CONTENT_OLLAMA_URL: ${CONTENT_OLLAMA_URL:-http://host.docker.internal:11434}
+      CONTENT_QDRANT_URL: ${CONTENT_QDRANT_URL:-}
+      CONTENT_QDRANT_API_KEY: ${CONTENT_QDRANT_API_KEY:-}
+      CONTENT_QDRANT_PATH: ${CONTENT_QDRANT_PATH:-/work/.content-index/qdrant}
+      CONTENT_COLLECTION: ${CONTENT_COLLECTION:-}
+      CONTENT_TIMEOUT: ${CONTENT_TIMEOUT:-180}
+      CONTENT_CHUNK_SIZE: ${CONTENT_CHUNK_SIZE:-1200}
+      CONTENT_CHUNK_OVERLAP: ${CONTENT_CHUNK_OVERLAP:-150}
+      CONTENT_BATCH_SIZE: ${CONTENT_BATCH_SIZE:-8}
+      CONTENT_PDF_VISION: ${CONTENT_PDF_VISION:-auto}
     volumes:
       - ./work:/work
     extra_hosts:
       - "host.docker.internal:host-gateway"
+  qdrant:
+    image: qdrant/qdrant:v1.15.1
+    profiles: [content-search]
+    ports:
+      - "127.0.0.1:6333:6333"
+    volumes:
+      - qdrant_data:/qdrant/storage
+
+volumes:
+  qdrant_data:

@@ -1,3 +1,4 @@
+import os
 import json
 from openai import OpenAI
 import requests
@@ -8,7 +9,7 @@ endpoint = "https://sencemaking.openai.azure.com/"
 model_name = "gpt-4o-mini"
 deployment = "gpt-4o-mini"
 
-subscription_key = "REMOVED_CREDENTIAL"
+subscription_key = os.environ["AZURE_OPENAI_API_KEY"]
 api_version = "2024-12-01-preview"
 
 client = AzureOpenAI(

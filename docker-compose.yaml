@@ -4,6 +4,8 @@ services:
     container_name: "oe"
     tty: true
     stdin_open: true
+    environment:
+      AZURE_OPENAI_API_KEY: ${AZURE_OPENAI_API_KEY}
     volumes:
       - ./work:/work
     extra_hosts:

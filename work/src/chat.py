@@ -41,14 +41,14 @@ def response_text(response):
 
 class Chat:
     def __init__(self, begin_messages=None, max_tokens=4096, temperature=0.2, top_p=1.0,
-                 response_format=None):
+                 response_format=None, allow_azure_fallback=True):
         subscription_key = os.environ.get("AZURE_OPENAI_API_KEY")
         azure_fallback = os.environ.get("SAMANTHA_AZURE_FALLBACK", "false").lower() in {"1", "true", "yes"}
         self.client = AzureOpenAI(
             api_version=os.environ.get("AZURE_OPENAI_API_VERSION", api_version),
             azure_endpoint=os.environ.get("AZURE_OPENAI_ENDPOINT", endpoint),
             api_key=subscription_key,
-        ) if azure_fallback and subscription_key else None
+        ) if allow_azure_fallback and azure_fallback and subscription_key else None
         self.client_qwen = OpenAI(
             api_key=os.environ.get("QWEN_API_KEY", openai_api_key_qwen),
             base_url=os.environ.get("QWEN_BASE_URL", openai_api_base_qwen),

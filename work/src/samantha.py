@@ -18,6 +18,7 @@ PROGRESS = {
     "clarify": "Request clarity checked.",
     "parse_intent": "Request understood.",
     "generate_commands": "Commands generated.",
+    "review_commands": "Independent command review completed.",
     "execute": "Approved commands executed.",
     "correct_error": "Error correction prepared.",
 }
@@ -87,6 +88,8 @@ def _process(initial_input, terminal_history, *, services, input_fn, output_fn, 
                 break
             output_fn(pending["message"].strip().strip("`").strip())
             if pending["kind"] == "confirmation":
+                output_fn(f"Working directory: {pending['cwd']}")
+                output_fn(f"Shell: {pending['shell']}")
                 output_fn("-----Commands-----")
                 for command in pending["commands"]:
                     output_fn(command)

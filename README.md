@@ -44,8 +44,11 @@ for the graph, state lifecycle, tests, and current limitations.
 - **Agent-2 – Shell Command Generator:**  
   Converts these steps into robust and executable shell commands tailored for the openEuler environment.
 
-- **Agent-3 – Code Confirmation Agent:**  
-  Summarizes the commands in plain language and asks for user confirmation, especially for risky operations and permission-related actions, before execution.
+- **Agent-3 – Independent Command Reviewer:**
+  Uses local Qwen to assess the exact commands against the user request, plan,
+  working directory, and previous error. It returns a plain-language assessment,
+  effects, problems, unknowns, and recommendation. A separate human confirmation
+  node authorizes execution; every corrected command sequence is reviewed again.
 
 - **Agent-e – Error Correction Agent:**  
   Monitors execution results. If a command fails, it analyzes the error, adjusts the plan, and sends the updated result back to Agent-2 to automatically regenerate commands and retry execution.

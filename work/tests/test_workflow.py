@@ -13,11 +13,22 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
 from clarify_intent import clarify_user_intent, parse_clarification_reply
 from chat import Chat, request_text, response_text
+from command_review import command_action_id
 from types import SimpleNamespace
 from langgraph.types import Command
 from model_output import parse_commands
 from samantha import main, process
 from workflow import WorkflowServices, build_workflow, initial_state
+
+
+def review_fixture():
+    return {
+        "verdict": "reasonable", "risk": "low",
+        "summary": "Create test.txt in the current directory.",
+        "effects": ["Creates an empty file, or updates its timestamp if it exists."],
+        "issues": [], "uncertainties": ["Whether test.txt already exists is unknown."],
+        "recommendation": "Proceed if this is the intended file.",
+    }
 
 
 def services():
@@ -27,7 +38,7 @@ def services():
         generate_commands=Mock(return_value=json.dumps({
             "Commands": ["touch test.txt"], "Explanation": "Create a file."
         })),
-        explain_commands=Mock(return_value="Create test.txt. Proceed? (y/n)"),
+        review_commands=Mock(return_value=review_fixture()),
         correct_error=Mock(return_value="Create the missing parent folder, then the file."),
         execute_commands=Mock(return_value={
             "success": True, "output": "done", "current_dir": "/destination"
@@ -57,7 +68,99 @@ class WorkflowTests(unittest.TestCase):
         fake.clarify.assert_called_once()
         fake.parse_intent.assert_called_once()
         fake.generate_commands.assert_called_once()
-        fake.explain_commands.assert_called_once()
+        fake.review_commands.assert_called_once()
+        self.assertEqual(pending["review"], review_fixture())
+        self.assertIn("Whether test.txt already exists is unknown.", pending["message"])
+        self.assertEqual(pending["cwd"], os.getcwd())
+        self.assertEqual(pending["action_id"], command_action_id(
+            pending["commands"], pending["cwd"], pending["shell"]))
+
+    def test_reviewer_receives_request_plan_commands_directory_and_previous_error(self):
+        fake = services()
+        fake.execute_commands.side_effect = [
+            {"success": False, "output": "missing folder", "current_dir": os.getcwd()},
+            {"success": True, "output": "done", "current_dir": os.getcwd()},
+        ]
+        fake.generate_commands.side_effect = [
+            '{"Commands": ["touch missing/test.txt"]}',
+            '{"Commands": ["mkdir -p missing", "touch missing/test.txt"]}',
+        ]
+        graph, config, first = start(fake)
+        request = fake.review_commands.call_args.args[0]
+        self.assertEqual(request["user_request"], "Create a file")
+        self.assertEqual(request["clarified_request"], "Create a test file.")
+        self.assertEqual(request["plan"], "Create test.txt in the current directory.")
+        self.assertEqual(request["commands"], ["touch missing/test.txt"])
+        self.assertEqual(request["cwd"], os.getcwd())
+        self.assertEqual(request["previous_error"], "")
+        second = graph.invoke(Command(resume="y"), config)
+        self.assertEqual(fake.review_commands.call_count, 2)
+        request = fake.review_commands.call_args.args[0]
+        self.assertEqual(request["commands"], ["mkdir -p missing", "touch missing/test.txt"])
+        self.assertEqual(request["previous_error"], "missing folder")
+        self.assertNotEqual(first["reviewed_action_id"], second["reviewed_action_id"])
+        self.assertFalse(second["approved"])
+        self.assertEqual(second["approved_action_id"], "")
+        fake.execute_commands.assert_called_once()
+
+    def test_review_problems_are_displayed_and_human_can_decline(self):
+        fake = services()
+        fake.review_commands.return_value = {**review_fixture(), "verdict": "issues_found",
+            "risk": "high", "issues": ["Deletes a file instead of creating it."],
+            "recommendation": "Reject and revise the commands."}
+        graph, config, state = start(fake)
+        self.assertIn("Deletes a file instead of creating it.", state["__interrupt__"][0].value["message"])
+        fake.execute_commands.assert_not_called()
+        state = graph.invoke(Command(resume="n"), config)
+        self.assertEqual(state["status"], "cancelled")
+        fake.execute_commands.assert_not_called()
+
+    def test_invalid_review_never_reaches_confirmation_or_execution(self):
+        for review in (None, {}, {**review_fixture(), "summary": ""},
+                       {**review_fixture(), "verdict": "approved"},
+                       {**review_fixture(), "verdict": "issues_found", "issues": []}):
+            with self.subTest(review=review):
+                fake = services()
+                fake.review_commands.return_value = review
+                _, _, state = start(fake)
+                self.assertEqual(state["status"], "failed")
+                self.assertIn("Command review failed", state["error"])
+                self.assertNotIn("__interrupt__", state)
+                fake.execute_commands.assert_not_called()
+
+    def test_changed_commands_cannot_use_the_original_confirmation(self):
+        fake = services()
+        graph, config, _ = start(fake)
+        graph.update_state(config, {"commands": ["rm test.txt"]})
+        state = graph.invoke(Command(resume="y"), config)
+        self.assertEqual(state["status"], "failed")
+        self.assertIn("reviewed action has changed", state["error"])
+        fake.execute_commands.assert_not_called()
+
+    def test_changed_directory_or_shell_cannot_use_the_original_confirmation(self):
+        for change in ("cwd", "shell"):
+            with self.subTest(change=change):
+                fake = services()
+                graph, config, _ = start(fake)
+                context = (patch("workflow.os.getcwd", return_value="/different") if change == "cwd"
+                           else patch.dict(os.environ, {"SAMANTHA_BASH": "different-bash"}))
+                with context:
+                    state = graph.invoke(Command(resume="y"), config)
+                self.assertEqual(state["status"], "failed")
+                fake.execute_commands.assert_not_called()
+
+    def test_executor_checks_identity_even_after_approval_node_has_completed(self):
+        fake = services()
+        graph, config, state = start(fake)
+        graph.update_state(config, {
+            "approved": True, "approved_action_id": state["reviewed_action_id"],
+            "commands": ["rm test.txt"],
+        }, as_node="confirm")
+        state = graph.invoke(None, config)
+        self.assertEqual(state["status"], "failed")
+        self.assertIn("approved action has changed", state["error"])
+        self.assertEqual(state["approved_action_id"], "")
+        fake.execute_commands.assert_not_called()
 
     def test_rejection_or_unrecognized_answer_never_executes(self):
         for answer in ("n", "no", "", "maybe", False, 1, {"approved": True}):
@@ -282,7 +385,7 @@ class WorkflowTests(unittest.TestCase):
                 self.assertEqual(state["status"], "failed")
                 self.assertIn("Command generation failed", state["error"])
                 self.assertNotIn("__interrupt__", state)
-                fake.explain_commands.assert_not_called()
+                fake.review_commands.assert_not_called()
                 fake.execute_commands.assert_not_called()
 
     def test_retry_limit_is_three_corrections_and_four_approved_executions(self):
@@ -303,7 +406,7 @@ class WorkflowTests(unittest.TestCase):
         self.assertNotIn("__interrupt__", state)
         self.assertEqual(fake.correct_error.call_count, 3)
         self.assertEqual(fake.generate_commands.call_count, 4)
-        self.assertEqual(fake.explain_commands.call_count, 4)
+        self.assertEqual(fake.review_commands.call_count, 4)
         self.assertEqual(fake.execute_commands.call_count, 4)
 
     def test_retry_can_succeed_and_must_be_confirmed_again(self):
@@ -340,7 +443,7 @@ class WorkflowTests(unittest.TestCase):
         fake.correct_error.assert_not_called()
 
     def test_agent_exceptions_stop_cleanly(self):
-        for agent in ("clarify", "parse_intent", "generate_commands", "explain_commands"):
+        for agent in ("clarify", "parse_intent", "generate_commands", "review_commands"):
             with self.subTest(agent=agent):
                 fake = services()
                 getattr(fake, agent).side_effect = RuntimeError("provider unavailable")
@@ -430,6 +533,8 @@ class TerminalTests(unittest.TestCase):
         self.assertEqual(state["status"], "succeeded")
         self.assertEqual(answers.call_count, 2)
         self.assertIn("touch test.txt", output)
+        self.assertTrue(any("# Command Review" in text for text in output))
+        self.assertIn("Working directory: " + os.getcwd(), output)
         self.assertEqual(fake.clarify.call_count, 2)
         fake.execute_commands.assert_called_once()
 

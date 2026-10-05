@@ -183,11 +183,13 @@ class ModelReasoningTests(JournalTestCase):
             azure.return_value.chat.completions.create.assert_not_called()
 
     def test_workflow_associates_traces_with_agents_and_keeps_retry_traces(self):
+        from test_workflow import review_fixture
+        review_json = json.dumps(review_fixture())
         contents = [
             '{"is_jump": false, "requirement_summary": "Create a file."}',
             '{"text": "Create test.txt."}', '{"Commands": ["first"]}',
-            '{"text": "Confirm first."}', '{"text": "Correct the request."}',
-            '{"Commands": ["second"]}', '{"text": "Confirm second."}',
+            review_json, '{"text": "Correct the request."}',
+            '{"Commands": ["second"]}', review_json,
         ]
         fake = replace(default_services(), execute_commands=Mock(side_effect=[
             {"success": False, "output": "fixture error", "current_dir": os.getcwd()},
@@ -203,8 +205,8 @@ class ModelReasoningTests(JournalTestCase):
         events = self.reasoning()
         self.assertEqual(len(events), 7)
         self.assertEqual([e["data"]["operation_name"] for e in events], [
-            "agent.clarify", "agent.parse_intent", "agent.generate_commands", "agent.explain_commands",
-            "agent.correct_error", "agent.generate_commands", "agent.explain_commands",
+            "agent.clarify", "agent.parse_intent", "agent.generate_commands", "agent.review_commands",
+            "agent.correct_error", "agent.generate_commands", "agent.review_commands",
         ])
         self.assertEqual([e["turn"] for e in events], [1, 1, 1, 1, 2, 2, 2])
         self.assertEqual(len({e["data"]["operation_id"] for e in events}), 7)

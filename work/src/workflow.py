@@ -17,6 +17,9 @@ from clarification_context import (
     build_clarification_input, check_clarification_question,
 )
 from model_output import parse_commands
+from command_review import (
+    CommandReview, ReviewRequest, command_action_id, format_review, validate_review,
+)
 from interaction_log import InteractionLogError, record_operation
 
 
@@ -40,6 +43,9 @@ class SamanthaState(TypedDict):
     commands: list[str]
     explanation: str
     confirmation_note: str
+    command_review: CommandReview | None
+    reviewed_action_id: str
+    approved_action_id: str
     approved: bool
     retries: int
     max_retries: int
@@ -57,14 +63,14 @@ class WorkflowServices:
     clarify: Callable[[str, list[dict[str, str]]], dict]
     parse_intent: Callable[[str], str]
     generate_commands: Callable[[str], str]
-    explain_commands: Callable[[list[str]], str]
+    review_commands: Callable[[ReviewRequest], CommandReview]
     correct_error: Callable[[str, list[str], str], str]
     execute_commands: Callable[[list[str]], ExecutionResult]
 
 
 def default_services() -> WorkflowServices:
     from clarify_intent import clarify_intent_once
-    from code_confrimation import code_confrim
+    from command_review import review_commands
     from error_correction import error_correction_agent
     from intent_explain import parse_user_intent
     from n2c import natural_language_to_command_agent
@@ -74,7 +80,7 @@ def default_services() -> WorkflowServices:
         clarify_intent_once,
         parse_user_intent,
         natural_language_to_command_agent,
-        code_confrim,
+        review_commands,
         error_correction_agent,
         run_commands,
     )
@@ -103,6 +109,9 @@ def initial_state(user_input: str, terminal_history=None, max_retries: int = 3,
         "commands": [],
         "explanation": "",
         "confirmation_note": "",
+        "command_review": None,
+        "reviewed_action_id": "",
+        "approved_action_id": "",
         "approved": False,
         "retries": 0,
         "max_retries": max_retries,
@@ -117,7 +126,8 @@ def initial_state(user_input: str, terminal_history=None, max_retries: int = 3,
 def _failure(stage: str, exc: Exception) -> dict:
     if isinstance(exc, InteractionLogError):
         raise exc
-    return {"status": "failed", "approved": False, "error": f"{stage}: {exc}"}
+    return {"status": "failed", "approved": False, "approved_action_id": "",
+            "error": f"{stage}: {exc}"}
 
 
 def _require_text(text: str) -> str:
@@ -198,32 +208,68 @@ def build_workflow(services: WorkflowServices | None = None, checkpointer=None):
                 "explanation": explanation,
                 "approved": False,
                 "confirmation_note": "",
+                "command_review": None,
+                "reviewed_action_id": "",
+                "approved_action_id": "",
             }
         except Exception as exc:
             return _failure("Command generation failed", exc)
 
-    def explain_commands(state: SamanthaState):
+    def review_commands(state: SamanthaState):
         try:
-            return {"confirmation_note": _require_text(record_operation(
-                "agent.explain_commands", services.explain_commands, state["commands"]))}
+            shell = os.environ.get("SAMANTHA_BASH", "/bin/bash")
+            request: ReviewRequest = {
+                "user_request": state["user_input"],
+                "clarified_request": state["clarified_request"],
+                "plan": state["intent"], "commands": list(state["commands"]),
+                "cwd": state["initial_dir"], "shell": shell,
+                "previous_error": state["error"],
+            }
+            review = validate_review(record_operation(
+                "agent.review_commands", services.review_commands, request))
+            return {
+                "command_review": review,
+                "confirmation_note": format_review(review, state["user_input"]),
+                "reviewed_action_id": command_action_id(
+                    state["commands"], state["initial_dir"], shell),
+                "approved": False, "approved_action_id": "",
+            }
         except Exception as exc:
-            return _failure("Command explanation failed", exc)
+            return _failure("Command review failed", exc)
+
+    def current_action_id(state: SamanthaState):
+        return command_action_id(state["commands"], os.getcwd(),
+                                 os.environ.get("SAMANTHA_BASH", "/bin/bash"))
 
     def confirm(state: SamanthaState):
+        if not state["command_review"] or state["reviewed_action_id"] != current_action_id(state):
+            return _failure("Confirmation blocked", ValueError("The reviewed action has changed."))
         answer = interrupt({
             "kind": "confirmation",
             "message": state["confirmation_note"],
             "commands": state["commands"],
             "retries": state["retries"],
+            "review": state["command_review"],
+            "action_id": state["reviewed_action_id"],
+            "cwd": state["initial_dir"],
+            "shell": os.environ.get("SAMANTHA_BASH", "/bin/bash"),
         })
         approved = answer is True or (
-            isinstance(answer, str) and answer.strip().lower() in {"y", "yes", "sure", "go ahead"}
+            isinstance(answer, str) and answer.strip().lower() in {
+                "y", "yes", "sure", "go ahead", "是", "确认", "执行", "同意",
+            }
         )
-        return {"approved": approved, "status": "running" if approved else "cancelled"}
+        return {"approved": approved,
+                "approved_action_id": state["reviewed_action_id"] if approved else "",
+                "status": "running" if approved else "cancelled"}
 
     def execute(state: SamanthaState):
         if not state["approved"]:
             return _failure("Execution blocked", ValueError("User confirmation is required."))
+        if (not state["command_review"] or not state["approved_action_id"]
+                or state["approved_action_id"] != state["reviewed_action_id"]
+                or state["approved_action_id"] != current_action_id(state)):
+            return _failure("Execution blocked", ValueError("The approved action has changed."))
         try:
             result = record_operation("commands.execute", services.execute_commands, state["commands"])
             if (type(result.get("success")) is not bool
@@ -236,6 +282,7 @@ def build_workflow(services: WorkflowServices | None = None, checkpointer=None):
                 "result": result,
                 "current_dir": result["current_dir"] if success and state["is_jump"] else state["initial_dir"],
                 "approved": False,
+                "approved_action_id": "",
                 "error": "" if success else result["output"],
                 "status": "succeeded" if success else (
                     "running" if state["retries"] < state["max_retries"] else "failed"
@@ -262,7 +309,7 @@ def build_workflow(services: WorkflowServices | None = None, checkpointer=None):
         "ask_clarification": ask_clarification,
         "parse_intent": parse_intent,
         "generate_commands": generate_commands,
-        "explain_commands": explain_commands,
+        "review_commands": review_commands,
         "confirm": confirm,
         "execute": execute,
         "correct_error": correct_error,
@@ -274,8 +321,8 @@ def build_workflow(services: WorkflowServices | None = None, checkpointer=None):
     for source, target in [
         ("ask_clarification", "clarify"),
         ("parse_intent", "generate_commands"),
-        ("generate_commands", "explain_commands"),
-        ("explain_commands", "confirm"),
+        ("generate_commands", "review_commands"),
+        ("review_commands", "confirm"),
         ("confirm", "execute"),
         ("execute", "correct_error"),
         ("correct_error", "generate_commands"),

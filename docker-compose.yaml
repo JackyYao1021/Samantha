@@ -2,6 +2,7 @@ services:
   oe:
     build:
       context: .
+      target: runtime
       args:
         CONTENT_HYBRID: ${CONTENT_HYBRID:-false}
         OPENEULER_REPO_URL: ${OPENEULER_REPO_URL:-https://repo.openeuler.org}

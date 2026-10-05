@@ -1,4 +1,4 @@
-FROM openeuler/openeuler:24.03-lts-sp3
+FROM openeuler/openeuler:24.03-lts-sp3 AS runtime
 
 SHELL ["/bin/bash", "-c"]
 ENV PYTHONUNBUFFERED=1 PYTHONDONTWRITEBYTECODE=1
@@ -24,3 +24,17 @@ COPY work/ /work/
 RUN printf '%s\n' 'source /work/samantha.sh' >> /root/.bashrc
 
 CMD ["/bin/bash"]
+
+# Test services use image code, a writable results volume, and an unprivileged UID.
+FROM runtime AS task-tests
+RUN command -v tar && command -v gzip \
+    && mkdir -p /test-results \
+    && chown 10001:10001 /test-results
+ENV HOME=/tmp/samantha-test-home PYTHONUTF8=1 SAMANTHA_TEST_RESULTS=/test-results
+USER 10001:10001
+WORKDIR /test-results
+ENTRYPOINT ["bash", "/work/tests/real_tasks/container.sh"]
+CMD ["shell"]
+
+# Standalone docker build keeps the regular application as its default target.
+FROM runtime AS default-runtime

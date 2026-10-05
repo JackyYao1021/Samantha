@@ -33,6 +33,12 @@ bounded correction loop. Existing agent prompts and the `samantha <request>`
 terminal entry point are retained. See [the LangGraph workflow guide](readme_help/langgraph_workflow.md)
 for the graph, state lifecycle, tests, and current limitations.
 
+For real-model acceptance testing, see [the real task evaluation guide](readme_help/real_task_evaluation.md).
+It includes 25 Chinese tasks with isolated fixtures, expected outcomes,
+interaction requirements, and checks against exported execution logs.
+The dedicated `docker-compose.tests.yaml` provides offline checks and an
+interactive real-task lab; Windows can use `work/tests/docker_real_tasks.ps1`.
+
 ![Overall system design](readme_help/Group_10.png)
 
 - **Agent-0 – Request Completeness Checker:**  

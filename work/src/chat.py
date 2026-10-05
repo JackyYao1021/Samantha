@@ -1,6 +1,8 @@
 # chat module, handles chat interactions with OpenAI and Qwen models
 
 import os
+from types import SimpleNamespace
+import httpx
 from openai import AzureOpenAI, OpenAI
 from model_output import parse_json_object
 
@@ -51,6 +53,9 @@ class Chat:
             timeout=float(os.environ.get("QWEN_TIMEOUT", "120")),
             max_retries=0,
         )
+        self.api_mode = os.environ.get("QWEN_API_MODE", "openai").lower()
+        if self.api_mode not in {"openai", "ollama"}:
+            raise ValueError("QWEN_API_MODE must be openai or ollama.")
         self.messages = [
             {
                 "role": "system",
@@ -96,17 +101,31 @@ class Chat:
     def send_message(self, message):
         options = {"response_format": self.response_format} if self.response_format else {}
         qwen_options = dict(options)
+        qwen_message = message
         if self.reasoning_effort:
             qwen_options["extra_body"] = {"reasoning_effort": self.reasoning_effort}
+        # Some Ollama Qwen3 templates still open <think> when effort is none.
+        # Use Qwen3's soft switch too, without changing history or Azure input.
+        if self.reasoning_effort.lower() == "none" and self.model_qwen.lower().split(":")[0] == "qwen3":
+            for index in range(len(message) - 1, -1, -1):
+                item = message[index]
+                if item.get("role") == "user" and isinstance(item.get("content"), str):
+                    if not item["content"].rstrip().endswith("/no_think"):
+                        qwen_message = list(message)
+                        qwen_message[index] = {**item, "content": item["content"] + "\n/no_think"}
+                    break
         try:
-            response = self.client_qwen.chat.completions.create(
-                messages=message,
-                max_tokens=self.max_tokens,
-                temperature=self.temperature,
-                top_p=self.top_p,
-                model=self.model_qwen,
-                **qwen_options,
-            )
+            if self.api_mode == "ollama":
+                response = self._send_ollama(message)
+            else:
+                response = self.client_qwen.chat.completions.create(
+                    messages=qwen_message,
+                    max_tokens=self.max_tokens,
+                    temperature=self.temperature,
+                    top_p=self.top_p,
+                    model=self.model_qwen,
+                    **qwen_options,
+                )
         except Exception as e:
             if self.client is None:
                 raise RuntimeError(
@@ -125,19 +144,50 @@ class Chat:
             )
         return response
 
+    def _send_ollama(self, messages):
+        root = str(self.client_qwen.base_url).rstrip("/").removesuffix("/v1")
+        payload = {
+            "model": self.model_qwen, "messages": messages, "stream": False,
+            "options": {"num_predict": self.max_tokens,
+                        "temperature": self.temperature, "top_p": self.top_p},
+        }
+        if self.reasoning_effort:
+            payload["think"] = (False if self.reasoning_effort.lower() == "none" else
+                                True if self.model_qwen.lower().split(":")[0] == "qwen3" else
+                                self.reasoning_effort)
+        if self.response_format:
+            if self.response_format["type"] == "json_schema":
+                payload["format"] = self.response_format["json_schema"]["schema"]
+            elif self.response_format["type"] == "json_object":
+                payload["format"] = "json"
+            else:
+                raise ValueError("Ollama requires json_object or json_schema output.")
+        with httpx.Client(timeout=float(os.environ.get("QWEN_TIMEOUT", "120")),
+                          trust_env=False) as client:
+            response = client.post(root + "/api/chat", json=payload)
+            response.raise_for_status()
+            data = response.json()
+        if data.get("done") is not True:
+            raise ValueError("Ollama returned an incomplete response.")
+        # Keep the existing interface; protocol reasoning is excluded from history.
+        return SimpleNamespace(choices=[SimpleNamespace(
+            finish_reason="length" if data.get("done_reason") == "length" else "stop",
+            message=SimpleNamespace(content=data.get("message", {}).get("content")),
+        )])
+
 
     def get_messages(self):
         return self.messages
 
 
-def request_text(begin_messages, prompt):
+def request_text(begin_messages, prompt, *, max_tokens=4096):
     """Use a JSON envelope for text agents, then preserve their text interface."""
     instructions = (
         '\nReturn one JSON object with exactly one field "text". '
         'Put the requested final response, including its Markdown formatting, '
         'in the "text" string. Do not include analysis or thinking.'
     )
-    chat = Chat(begin_messages=begin_messages + instructions,
+    chat = Chat(begin_messages=begin_messages + instructions, max_tokens=max_tokens,
                 response_format={"type": "json_object"})
     data = parse_json_object(chat.chat_context(prompt))
     text = data.get("text")

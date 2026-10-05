@@ -28,6 +28,9 @@ from workflow import build_workflow, default_services, initial_state
 def approve_fixture_commands(commands, directory):
     targets = {"hello.txt", (directory / "hello.txt").as_posix(), str(directory / "hello.txt")}
     allowed = [["pwd"], ["cd", directory.as_posix()], ["cd", str(directory)]]
+    # Small models may redundantly ensure the existing fixture directory exists.
+    # Permit only this exact directory; other mkdir targets remain forbidden.
+    allowed.extend([["mkdir", "-p", directory.as_posix()], ["mkdir", "-p", str(directory)]])
     for target in targets:
         allowed.extend([
             ["touch", target],

@@ -4,12 +4,14 @@ services:
       context: .
       args:
         CONTENT_HYBRID: ${CONTENT_HYBRID:-false}
+        OPENEULER_REPO_URL: ${OPENEULER_REPO_URL:-https://repo.openeuler.org}
     container_name: "oe"
     tty: true
     stdin_open: true
     environment:
       QWEN_BASE_URL: ${QWEN_BASE_URL:-http://host.docker.internal:11434/v1}
       QWEN_MODEL: ${QWEN_MODEL:-qwen3:4b}
+      QWEN_API_MODE: ${QWEN_API_MODE:-ollama}
       QWEN_API_KEY: ${QWEN_API_KEY:-ollama}
       QWEN_REASONING_EFFORT: ${QWEN_REASONING_EFFORT:-none}
       QWEN_TIMEOUT: ${QWEN_TIMEOUT:-120}

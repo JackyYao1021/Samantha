@@ -309,6 +309,31 @@ class ModelOutputTests(unittest.TestCase):
 
 
 class ChatConfigurationTests(unittest.TestCase):
+    def test_qwen3_soft_switch_does_not_mutate_history_or_azure_fallback(self):
+        messages = [{"role": "system", "content": "instructions"},
+                    {"role": "user", "content": "hello"}]
+        environment = {"SAMANTHA_AZURE_FALLBACK": "true", "AZURE_OPENAI_API_KEY": "test-key"}
+        with patch.dict(os.environ, environment, clear=True), patch("chat.OpenAI") as qwen, \
+                patch("chat.AzureOpenAI") as azure:
+            qwen.return_value.chat.completions.create.side_effect = RuntimeError("unavailable")
+            Chat().send_message(messages)
+            sent = qwen.return_value.chat.completions.create.call_args.kwargs["messages"]
+            self.assertEqual(sent[-1]["content"], "hello\n/no_think")
+            self.assertEqual(messages[-1]["content"], "hello")
+            self.assertEqual(azure.return_value.chat.completions.create.call_args.kwargs["messages"], messages)
+
+    def test_soft_switch_respects_model_and_thinking_configuration(self):
+        for model, effort, content in (("qwen3.5:4b", "none", "hello"),
+                                       ("qwen3:4b", "high", "hello"),
+                                       ("qwen3:4b", "", "hello"),
+                                       ("qwen3:4b", "none", "hello\n/no_think")):
+            environment = {"QWEN_MODEL": model, "QWEN_REASONING_EFFORT": effort}
+            with self.subTest(model=model, effort=effort), \
+                    patch.dict(os.environ, environment, clear=True), patch("chat.OpenAI") as qwen:
+                Chat().send_message([{"role": "user", "content": content}])
+                sent = qwen.return_value.chat.completions.create.call_args.kwargs["messages"]
+                self.assertEqual(sent[-1]["content"], content)
+
     def test_qwen_only_configuration_and_generation_parameters(self):
         with patch.dict(os.environ, {}, clear=True), patch("chat.OpenAI") as qwen, \
                 patch("chat.AzureOpenAI") as azure:
@@ -368,6 +393,60 @@ class ChatConfigurationTests(unittest.TestCase):
             self.assertEqual(kwargs["model"], "custom-model")
             self.assertEqual(kwargs["response_format"], {"type": "json_object"})
             self.assertNotIn("extra_body", kwargs)
+
+
+class OllamaTransportTests(unittest.TestCase):
+    def test_native_chat_separates_thinking_and_keeps_generation_settings(self):
+        environment = {"QWEN_API_MODE": "ollama", "QWEN_TIMEOUT": "30"}
+        with patch.dict(os.environ, environment, clear=True), patch("chat.OpenAI") as qwen, \
+                patch("chat.httpx.Client") as http:
+            qwen.return_value.base_url = "http://host.docker.internal:11434/v1/"
+            response = http.return_value.__enter__.return_value.post.return_value
+            response.json.return_value = {"done": True, "done_reason": "stop",
+                                          "message": {"content": '{"ok": true}', "thinking": "private analysis"}}
+            chat = Chat(max_tokens=128, temperature=0.2, top_p=0.8,
+                        response_format={"type": "json_object"})
+            self.assertEqual(chat.chat_context("hello"), '{"ok": true}')
+            call = http.return_value.__enter__.return_value.post.call_args
+            self.assertEqual(call.args[0], "http://host.docker.internal:11434/api/chat")
+            self.assertFalse(call.kwargs["json"]["think"])
+            self.assertEqual(call.kwargs["json"]["format"], "json")
+            self.assertEqual(call.kwargs["json"]["options"],
+                             {"num_predict": 128, "temperature": 0.2, "top_p": 0.8})
+            self.assertEqual(chat.messages[-1]["content"], '{"ok": true}')
+            http.assert_called_once_with(timeout=30.0, trust_env=False)
+            qwen.return_value.chat.completions.create.assert_not_called()
+
+    def test_native_schema_and_truncated_answers_are_not_accepted(self):
+        schema = {"type": "object", "properties": {"ok": {"type": "boolean"}}}
+        with patch.dict(os.environ, {"QWEN_API_MODE": "ollama"}, clear=True), \
+                patch("chat.OpenAI") as qwen, patch("chat.httpx.Client") as http:
+            qwen.return_value.base_url = "http://localhost:11434/v1/"
+            response = http.return_value.__enter__.return_value.post.return_value
+            response.json.return_value = {"done": True, "done_reason": "length",
+                                          "message": {"content": '{"ok":'}}
+            chat = Chat(response_format={"type": "json_schema", "json_schema": {"schema": schema}})
+            with self.assertRaisesRegex(ValueError, "token limit"):
+                chat.chat_context("hello")
+            payload = http.return_value.__enter__.return_value.post.call_args.kwargs["json"]
+            self.assertEqual(payload["format"], schema)
+            self.assertEqual(chat.messages[-1]["role"], "user")
+            response.json.return_value = {"done": False, "message": {"content": "partial"}}
+            with self.assertRaisesRegex(RuntimeError, "incomplete response"):
+                chat.chat_context("hello again")
+
+    def test_native_failure_uses_only_explicit_azure_fallback_with_original_request(self):
+        environment = {"QWEN_API_MODE": "ollama", "SAMANTHA_AZURE_FALLBACK": "true",
+                       "AZURE_OPENAI_API_KEY": "test-key"}
+        messages = [{"role": "user", "content": "hello"}]
+        with patch.dict(os.environ, environment, clear=True), patch("chat.OpenAI") as qwen, \
+                patch("chat.AzureOpenAI") as azure, patch("chat.httpx.Client") as http:
+            qwen.return_value.base_url = "http://localhost:11434/v1/"
+            http.return_value.__enter__.return_value.post.side_effect = RuntimeError("unavailable")
+            Chat().send_message(messages)
+            sent = azure.return_value.chat.completions.create.call_args.kwargs
+            self.assertEqual(sent["messages"], messages)
+            self.assertNotIn("extra_body", sent)
 
 
 class ResponseTextTests(unittest.TestCase):

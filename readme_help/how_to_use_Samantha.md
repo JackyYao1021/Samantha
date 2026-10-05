@@ -28,6 +28,7 @@ Ollama run on the same host. To override the defaults:
 export QWEN_BASE_URL='http://127.0.0.1:11434/v1'
 export QWEN_MODEL='qwen3:4b'
 export QWEN_API_KEY='ollama'
+export QWEN_API_MODE='ollama'
 ```
 
 For the project's openEuler Docker container, `docker-compose.yaml` supplies
@@ -42,6 +43,17 @@ docker exec -it oe bash
 samantha "Create hello.txt in the current directory and write hello world to it"
 ```
 
+Compose selects `QWEN_API_MODE=ollama`, using the native `/api/chat` endpoint
+with `think=false` to request non-thinking output separately from the JSON format.
+Protocol reasoning fields are kept out of the displayed answer and history.
+The confirmation agent uses a compact prompt and a 768-token output budget;
+truncated output is rejected before approval or execution.
+Small models can still produce verbose or inaccurate explanations; review the
+exact commands shown before approving. The `/v1` suffix in `QWEN_BASE_URL` is
+removed for native calls.
+Use `QWEN_API_MODE=openai` for vLLM or other OpenAI-compatible services; direct
+host execution defaults to this mode unless `QWEN_API_MODE` is set.
+
 The image installs Python dependencies during the build and loads the `samantha`
 function in interactive Bash sessions. `setup.sh` is only needed for a native
 Linux installation. The `work` directory is mounted into the container, so files
@@ -55,14 +67,36 @@ then start Docker Desktop and wait until its engine is running. See the
 From PowerShell at the repository root, run the complete container test:
 
 ```powershell
-.\work\tests\docker_smoke.ps1
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\work\tests\docker_smoke.ps1
 ```
+
+This allows the test script to run in that process without changing the system's
+PowerShell execution policy.
 
 The script builds and starts the openEuler container, runs the offline workflow
 tests and Bash wrapper tests, then calls the host's real `qwen3:4b` model to test
 file creation, reading, cancellation, and follow-up clarification. Its report is
 saved to `work/.test-results/docker-ollama-smoke.json`. Use `-SkipBuild` to reuse
 an existing image. Docker and Ollama must both be running.
+
+If Docker Hub times out while pulling the base image, download the same version
+from the [official openEuler repository](https://www.openeuler.org/en/wiki/install/image/)
+and give it the tag used by the Dockerfile before retrying:
+
+```powershell
+docker pull hub.oepkgs.net/openeuler/openeuler:24.03-lts-sp3
+docker tag hub.oepkgs.net/openeuler/openeuler:24.03-lts-sp3 openeuler/openeuler:24.03-lts-sp3
+```
+
+If package downloads are slow, put the following build setting in the repository's
+local `.env` file, or set it in the PowerShell session before running the test:
+
+```powershell
+$env:OPENEULER_REPO_URL = 'https://repo.huaweicloud.com/openeuler'
+```
+
+The default is `https://repo.openeuler.org`. The build uses runtime package
+repositories and retains openEuler's package signature verification.
 
 Check access from inside the container with:
 
@@ -80,8 +114,12 @@ For structured output, all agents use JSON mode with a default temperature of
 0.2; the clarification agent additionally uses a fixed JSON schema and a compact
 prompt suited to the 4B model. Text agents return Markdown inside a JSON text field, which Samantha unwraps
 before displaying it. It requests no thinking
-with `QWEN_REASONING_EFFORT=none` and filters thinking text from templates that
-still include it in the response. Request timeout defaults to 120 seconds,
+with `QWEN_REASONING_EFFORT=none`. In OpenAI mode, for the `qwen3` model family it also appends
+the [Qwen3 `/no_think` soft switch](https://qwen.readthedocs.io/en/v3.0/getting_started/quickstart.html)
+to the latest user message sent to Qwen, since some Ollama templates ignore the
+API setting. Conversation history and Azure fallback input keep the original
+request. Other model families receive no soft switch. It also filters thinking
+tags from responses that still include them. Request timeout defaults to 120 seconds,
 overridable with `QWEN_TIMEOUT`. Set `QWEN_REASONING_EFFORT` to an empty string
 when a different backend does not support that request field.
 

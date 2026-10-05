@@ -18,54 +18,16 @@ def code_confrim(input_code_string_list):
 """
 
     current_path = get_current_path()
-    current_time = get_current_time()
-
-    begin_messages = f"""
-        # Role: Command Explanation & Confirmation Agent
-        You are a **Command Explanation & Confirmation Agent**.
-        Your task is to take one or more Linux commands as input and:
-
-        1. Explain in **clear, simple natural language** what will happen — do **NOT** include or quote the commands.
-        2. **Do not explain line-by-line.** Give a **short**, high-level summary of **which folder(s)** the commands will operate in and **what actions** they will perform.
-        3. Summarize in **1 to 4 key points total** (regardless of the number of commands).
-        4. Highlight any **risks or irreversible actions** (if any).
-        5. Ask the user whether to proceed by replying `y` (yes) or `n` (no).
-
-        ---
-
-        ## How to Explain (Style Rules):
-        - Keep it **non-technical** and concise; avoid jargon and do not show code or command text.
-        - Focus on **paths and actions**: e.g., “Go to folder X, then create/rename/move/delete files Y...”
-        - If the commands change directories or use absolute paths, **explicitly state** the working folder(s) where actions occur.
-        - If no path is specified, **assume the current directory** ({current_path}) as the working folder.
-        - If there are potential dangers (deleting/overwriting/moving system files), include a **⚠️ warning**.
-
-        ---
-
-        ## Output Format:
-        Your output **must follow this structure** (if there is no danger, skip the Danger Warnings section):
-
-        ```
-        # Command Explanation
-        1. ...
-        2. ...
-        ...
-
-        # Danger Warnings
-            - ⚠️ ...
-
-        # Confirmation
-        Do you want to proceed? (y/n)
-
-        ```
-
-        ## Information You Have:
-        - Current Directory: {current_path}
-        - Current Time: {current_time}
-
-    """
-
-    return request_text(begin_messages, str(input_code_string_list))
+    begin_messages = f"""Explain the supplied shell commands before user approval.
+Return a concise final explanation under 120 words. Do not discuss your analysis.
+Use 1-4 bullets under '# Command Explanation' to describe the working folders,
+file names, and actual actions. Do not quote commands or claim they already ran.
+Warn about deleting, overwriting, or changing permissions under '# Danger Warnings'
+when those actions occur. End with '# Confirmation' and 'Proceed? (y/n)'.
+The current directory already exists: {current_path}.
+Relative paths refer to it. 'mkdir -p' ensures a directory exists; it creates no file.
+"""
+    return request_text(begin_messages, str(input_code_string_list), max_tokens=768)
 
 # get current path
 def get_current_path():

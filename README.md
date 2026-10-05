@@ -94,9 +94,13 @@ Our current version of **Samantha** successfully implements all core features fr
 ![keyword search](readme_help/t3_example2.png)
 *Figure：example of asking for clarification.*
 
-Tier 3 features such as organizational intelligence and durable interaction
-memory are still future work. LangGraph provides an explicit workflow
-on which those extensions can be built.
+Durable interaction logging now records every user turn, terminal response,
+workflow operation, approval, execution result, error, and retry in SQLite.
+Use `samantha history list`, `samantha history show latest`, or
+`samantha history export latest --output session.json`. See
+[the interaction logging guide](readme_help/interaction_logging.md) for storage,
+event format, exports, and verification. Organizational intelligence and
+automatic recall of prior conversations remain future work.
 
 ### File and Image Content Search
 
@@ -117,7 +121,7 @@ The following extensions are planned:
 ![Future Architecture](readme_help/Group_12.png)
 *Figure：Architecture for the future development*
 
-- **Persistent logging and checkpoints:** The current graph keeps checkpoints in memory for one process. Durable interaction, execution, and error logs still need implementation.
+- **Persistent checkpoints and memory:** Durable interaction, execution, and error logs are implemented. The graph still keeps checkpoints in memory for one process; cross-process workflow resume and automatic conversation recall remain future work.
 - **Vector database:** Qdrant-backed content search is implemented. Automated deletion/move synchronization and visual-similarity embeddings are future extensions.
 - **External tools:** LangGraph orchestration is implemented. Additional tools beyond the Bash executor can be introduced through dedicated nodes.
 

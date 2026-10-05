@@ -13,6 +13,7 @@ from langgraph.graph import END, START, StateGraph
 from langgraph.types import interrupt
 
 from model_output import parse_commands
+from interaction_log import InteractionLogError, record_operation
 
 
 class ExecutionResult(TypedDict):
@@ -101,6 +102,8 @@ def initial_state(user_input: str, terminal_history=None, max_retries: int = 3) 
 
 
 def _failure(stage: str, exc: Exception) -> dict:
+    if isinstance(exc, InteractionLogError):
+        raise exc
     return {"status": "failed", "approved": False, "error": f"{stage}: {exc}"}
 
 
@@ -115,7 +118,8 @@ def build_workflow(services: WorkflowServices | None = None, checkpointer=None):
 
     def clarify(state: SamanthaState):
         try:
-            response = services.clarify(state["user_turn"], state["clarification_history"])
+            response = record_operation("agent.clarify", services.clarify,
+                                        state["user_turn"], state["clarification_history"])
             if response.get("cancelled"):
                 return {"status": "cancelled"}
             if response.get("question"):
@@ -150,13 +154,15 @@ def build_workflow(services: WorkflowServices | None = None, checkpointer=None):
 
     def parse_intent(state: SamanthaState):
         try:
-            return {"intent": _require_text(services.parse_intent(state["clarified_request"]))}
+            return {"intent": _require_text(record_operation(
+                "agent.parse_intent", services.parse_intent, state["clarified_request"]))}
         except Exception as exc:
             return _failure("Intent parsing failed", exc)
 
     def generate_commands(state: SamanthaState):
         try:
-            commands, explanation = parse_commands(services.generate_commands(state["intent"]))
+            commands, explanation = parse_commands(record_operation(
+                "agent.generate_commands", services.generate_commands, state["intent"]))
             return {
                 "commands": commands,
                 "explanation": explanation,
@@ -168,7 +174,8 @@ def build_workflow(services: WorkflowServices | None = None, checkpointer=None):
 
     def explain_commands(state: SamanthaState):
         try:
-            return {"confirmation_note": _require_text(services.explain_commands(state["commands"]))}
+            return {"confirmation_note": _require_text(record_operation(
+                "agent.explain_commands", services.explain_commands, state["commands"]))}
         except Exception as exc:
             return _failure("Command explanation failed", exc)
 
@@ -188,7 +195,7 @@ def build_workflow(services: WorkflowServices | None = None, checkpointer=None):
         if not state["approved"]:
             return _failure("Execution blocked", ValueError("User confirmation is required."))
         try:
-            result = services.execute_commands(state["commands"])
+            result = record_operation("commands.execute", services.execute_commands, state["commands"])
             if (type(result.get("success")) is not bool
                     or not isinstance(result.get("output"), str)
                     or not isinstance(result.get("current_dir"), str)
@@ -209,7 +216,7 @@ def build_workflow(services: WorkflowServices | None = None, checkpointer=None):
 
     def correct_error(state: SamanthaState):
         try:
-            intent = services.correct_error(
+            intent = record_operation("agent.correct_error", services.correct_error,
                 state["clarified_request"], state["commands"], state["error"]
             )
             return {"intent": _require_text(intent), "retries": state["retries"] + 1}

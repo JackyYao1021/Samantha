@@ -6,6 +6,7 @@ import json
 import os
 from pathlib import Path
 import uuid
+from interaction_log import InteractionLogError, record_operation
 
 from .extract import discover_files, extract_sections, split_text
 from .models import BGEEmbedder, QwenAnalyzer, normalize_tags
@@ -99,7 +100,9 @@ class ContentPipeline:
             if progress:
                 progress(f"Indexing {path}")
             try:
-                results.append(self.index_file(path, force))
+                results.append(record_operation("content.index_file", self.index_file, path, force))
+            except InteractionLogError:
+                raise
             except Exception as exc:
                 results.append({"path": str(path), "status": "failed", "error": str(exc)})
         return results

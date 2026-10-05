@@ -3,6 +3,7 @@
 **/__pycache__
 work/.test-results
 work/.content-index
+work/.samantha
 .env
 work/ollama-smoke-*
 readme_help

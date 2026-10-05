@@ -57,6 +57,13 @@ after the process exits. `build_workflow(..., checkpointer=...)` accepts a diffe
 checkpointer for future durable storage; persistent session IDs and a resume
 entry point would also be needed.
 
+The terminal adapter now uses a durable SQLite interaction journal independently
+of those graph checkpoints. Each invocation's journal session ID is also its
+LangGraph `thread_id`. User turns, terminal output, service inputs/results,
+approval updates, shell execution, errors, and retries are committed as they
+happen. See [interaction logging](interaction_logging.md) for history commands
+and the event schema. Reading a saved log does not resume or replay commands.
+
 ## Terminal integration
 
 The existing `samantha <request>` shell function remains the entry point.
@@ -102,5 +109,6 @@ status, relative sourcing, and temporary-file cleanup using a fake CLI.
   correction may repeat earlier steps; rollback and per-step execution tracking
   are future work.
 - The current executor has no timeout or output-size limit.
-- Persistent logging, cross-invocation memory, vector retrieval, and additional
-  tools are not part of this refactor.
+- Cross-invocation conversation recall, durable workflow resume, and additional
+  shell-workflow tools remain future work. Persistent interaction logging and
+  Qdrant-backed content retrieval are implemented separately.

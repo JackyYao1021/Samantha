@@ -226,6 +226,15 @@ class WorkflowTests(unittest.TestCase):
 
 
 class TerminalTests(unittest.TestCase):
+    def setUp(self):
+        directory = tempfile.TemporaryDirectory()
+        self.addCleanup(directory.cleanup)
+        environment = patch.dict(os.environ, {
+            "SAMANTHA_LOG_PATH": str(Path(directory.name) / "interactions.sqlite3"),
+        })
+        environment.start()
+        self.addCleanup(environment.stop)
+
     def test_cli_drives_clarification_then_confirmation(self):
         fake = services()
         fake.clarify.side_effect = [

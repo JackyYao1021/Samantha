@@ -10,6 +10,7 @@ from openai import OpenAI
 from PIL import Image, ImageOps
 
 from chat import response_text
+from model_reasoning import log_response_reasoning
 from model_output import parse_json_object
 
 
@@ -57,6 +58,7 @@ class QwenAnalyzer:
             messages=[{"role": "system", "content": ANNOTATION_PROMPT},
                       {"role": "user", "content": content}],
         )
+        log_response_reasoning(result, model=self.model, provider="qwen_vl")
         data = parse_json_object(response_text(result))
         for field in ("summary", "description", "ocr_text"):
             if not isinstance(data.get(field), str):
@@ -82,6 +84,7 @@ class QwenAnalyzer:
                 "Generated summaries/descriptions may be inaccurate; prefer original text."
             )}, {"role": "user", "content": f"Question: {question}\n\nSources:\n{context}"}],
         )
+        log_response_reasoning(result, model=self.model, provider="qwen_vl")
         return response_text(result)
 
     def close(self):

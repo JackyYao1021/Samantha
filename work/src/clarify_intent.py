@@ -2,6 +2,10 @@ from chat import Chat
 import re
 from pathlib import Path
 from datetime import datetime
+from clarification_context import (
+    CANCEL_ANSWERS, MAX_CLARIFICATIONS, MAX_EMPTY_ANSWERS,
+    build_clarification_input, check_clarification_question,
+)
 from model_output import parse_json_object, strip_code_fence
 
 # get current path
@@ -41,6 +45,9 @@ question (string), requirement_summary (string), is_jump (boolean), cancelled (b
   For creating a file or directory, its name is essential. Do not invent names.
 - If the task is complete, set question="", cancelled=false, and describe the goal
   in requirement_summary using precise English and explicit paths or file names.
+- Use the original task and all clarification answers together. A short reply
+  answers the previous question; it does not replace the original task.
+  If a Python file name is supplied without an extension, append .py.
 - If the user asks to stop or cancel, set cancelled=true, both strings empty,
   and is_jump=false.
 - For file operations with no path, assume the current directory. Do not ask for a path.
@@ -99,18 +106,36 @@ def clarify_intent_once(user_input, history=None):
 def clarify_user_intent(user_input):
     """Compatibility helper for running this agent on its own."""
     history = []
+    original_request = user_input
+    question = ""
+    clarification_count = 0
+    answers = []
     while True:
-        response = clarify_intent_once(user_input, history)
+        prompt = build_clarification_input(original_request, question, user_input, answers)
+        response = clarify_intent_once(prompt, history)
         if response.get("cancelled"):
             raise SystemExit(0)
         if "question" not in response:
             return response["is_jump"], response["requirement_summary"]
-        print("Agent:", response["question"])
+        check_clarification_question(response["question"], question,
+                                     clarification_count, MAX_CLARIFICATIONS)
+        question = response["question"]
+        clarification_count += 1
+        print("Agent:", question)
         history.extend([
             {"role": "user", "content": user_input},
             {"role": "assistant", "content": response["question"]},
         ])
-        user_input = input("User: ")
+        for _ in range(MAX_EMPTY_ANSWERS):
+            user_input = input("User: ").strip()
+            if user_input.lower() in CANCEL_ANSWERS:
+                raise SystemExit(0)
+            if user_input:
+                break
+            print("Please provide a non-empty answer, or type 'cancel' to stop.")
+        else:
+            raise ValueError(f"No non-empty answer received after {MAX_EMPTY_ANSWERS} attempts.")
+        answers.append({"question": question, "answer": user_input})
 
 
 if __name__ == "__main__":

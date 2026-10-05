@@ -45,7 +45,8 @@ samantha "Create hello.txt in the current directory and write hello world to it"
 
 Compose selects `QWEN_API_MODE=ollama`, using the native `/api/chat` endpoint
 with `think=false` to request non-thinking output separately from the JSON format.
-Protocol reasoning fields are kept out of the displayed answer and history.
+Protocol reasoning fields are kept out of the displayed answer and model chat
+history, and persisted separately in the interaction journal when returned.
 The confirmation agent uses a compact prompt and a 768-token output budget;
 truncated output is rejected before approval or execution.
 Small models can still produce verbose or inaccurate explanations; review the

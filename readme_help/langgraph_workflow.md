@@ -35,6 +35,8 @@ which means at most four approved executions in total.
 `work/src/workflow.py` defines `SamanthaState`, including:
 
 - Original input, the latest clarification answer, and clarification history.
+- Non-empty clarification answers paired with the questions they answer.
+- Clarification question count and its independent limit (three by default).
 - Clarified request, final-directory choice, natural-language plan, and commands.
 - Explanation, approval, correction count, execution result, and terminal status.
 - Initial directory, directory to return to the caller, and failure details.
@@ -42,6 +44,29 @@ which means at most four approved executions in total.
 `ask_clarification` and `confirm` use `interrupt()`. The terminal adapter in
 `work/src/samantha.py` prints the interrupt payload, reads input, and resumes
 with `Command(resume=answer)` under the same `thread_id`.
+
+After a clarification answer, the model's latest user message explicitly contains
+the original task, the previous question, and the new answer. Raw user text and
+questions remain in `clarification_history`; the wrapper is not appended there.
+This lets a short answer such as `binary_search` supply a file name while retaining
+the original request to write Python binary search code. Existing terminal history
+does not replace the current invocation's original task.
+
+Earlier answers are also included as explicit question/answer pairs in the latest
+message. A bare name answering an explicit file/directory naming question is
+labeled as a supplied name. For a request explicitly asking for a Python file or
+script, a literal file name without an extension gains `.py`. Existing extensions
+and directory names are preserved; sentences, paths, and uncertain replies are
+left for the model to interpret. This is a conservative naming rule, not a general
+task-slot parser.
+
+Blank answers are re-prompted in the interrupt node without a model call or a
+history update. Three consecutive blank answers end the task with `status="failed"`.
+A repeated question after a non-empty answer also fails with an explanation;
+comparison ignores letter case, whitespace, and trailing sentence punctuation.
+Rephrased questions are bounded by `max_clarifications`, configurable through
+`initial_state(..., max_clarifications=...)`. The final allowed answer can still
+complete the task. These limits are separate from command-error `max_retries`.
 
 Model calls are separate from interrupt nodes. LangGraph restarts an interrupted
 node when it resumes, so this separation prevents duplicate model calls while

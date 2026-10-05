@@ -1,7 +1,7 @@
 """Durable, ordered interaction journal shared by the terminal and tools.
 
-Every write is committed before returning. No model reasoning or environment
-variables are collected; user text and tool output are retained verbatim.
+Every write is committed before returning. User text, tool output, and model
+reasoning returned by the provider are retained separately.
 """
 
 from contextlib import contextmanager
@@ -18,6 +18,7 @@ import uuid
 
 DEFAULT_LOG_PATH = Path(__file__).resolve().parents[1] / ".samantha" / "interactions.sqlite3"
 _active_session = ContextVar("samantha_log_session", default=None)
+_active_operation = ContextVar("samantha_log_operation", default=None)
 
 
 class InteractionLogError(RuntimeError):
@@ -223,6 +224,7 @@ def operation(name, arguments):
     session.record("operation_started", {"operation_id": operation_id, "name": name,
                                          "arguments": arguments})
     started = time.monotonic()
+    token = _active_operation.set({"operation_id": operation_id, "operation_name": name})
     try:
         yield outcome
     except BaseException as exc:
@@ -235,6 +237,16 @@ def operation(name, arguments):
         session.record("operation_finished", {"operation_id": operation_id, "name": name,
                        "status": "completed", "duration_ms": round((time.monotonic() - started) * 1000, 3),
                        **outcome})
+    finally:
+        _active_operation.reset(token)
+
+
+def record_model_reasoning(data):
+    """Attach provider-returned reasoning to the active agent/tool operation."""
+    session = _active_session.get()
+    enabled = os.environ.get("SAMANTHA_LOG_REASONING", "true").lower() in {"1", "true", "yes"}
+    if session is not None and enabled:
+        session.record("model_reasoning", {**(_active_operation.get() or {}), **data}, role="model")
 
 
 def record_operation(name, function, *args, **kwargs):

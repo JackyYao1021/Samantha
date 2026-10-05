@@ -12,6 +12,10 @@ from langgraph.checkpoint.memory import InMemorySaver
 from langgraph.graph import END, START, StateGraph
 from langgraph.types import interrupt
 
+from clarification_context import (
+    CANCEL_ANSWERS, MAX_CLARIFICATIONS, MAX_EMPTY_ANSWERS,
+    build_clarification_input, check_clarification_question,
+)
 from model_output import parse_commands
 from interaction_log import InteractionLogError, record_operation
 
@@ -26,6 +30,9 @@ class SamanthaState(TypedDict):
     user_input: str
     user_turn: str
     clarification_history: list[dict[str, str]]
+    clarification_answers: list[dict[str, str]]
+    clarification_count: int
+    max_clarifications: int
     question: str
     clarified_request: str
     is_jump: bool
@@ -73,16 +80,22 @@ def default_services() -> WorkflowServices:
     )
 
 
-def initial_state(user_input: str, terminal_history=None, max_retries: int = 3) -> SamanthaState:
+def initial_state(user_input: str, terminal_history=None, max_retries: int = 3,
+                  max_clarifications: int = MAX_CLARIFICATIONS) -> SamanthaState:
     if not user_input.strip():
         raise ValueError("A non-empty request is required.")
     if type(max_retries) is not int or max_retries < 0:
         raise ValueError("max_retries must be a non-negative integer.")
+    if type(max_clarifications) is not int or max_clarifications < 0:
+        raise ValueError("max_clarifications must be a non-negative integer.")
     current_dir = os.getcwd()
     return {
         "user_input": user_input,
         "user_turn": user_input,
         "clarification_history": list(terminal_history or []),
+        "clarification_answers": [],
+        "clarification_count": 0,
+        "max_clarifications": max_clarifications,
         "question": "",
         "clarified_request": "",
         "is_jump": False,
@@ -118,17 +131,23 @@ def build_workflow(services: WorkflowServices | None = None, checkpointer=None):
 
     def clarify(state: SamanthaState):
         try:
+            prompt = build_clarification_input(
+                state["user_input"], state["question"], state["user_turn"],
+                state["clarification_answers"])
             response = record_operation("agent.clarify", services.clarify,
-                                        state["user_turn"], state["clarification_history"])
+                                        prompt, state["clarification_history"])
             if response.get("cancelled"):
                 return {"status": "cancelled"}
             if response.get("question"):
                 question = _require_text(response["question"])
+                check_clarification_question(question, state["question"],
+                                             state["clarification_count"], state["max_clarifications"])
                 history = state["clarification_history"] + [
                     {"role": "user", "content": state["user_turn"]},
                     {"role": "assistant", "content": question},
                 ]
-                return {"question": question, "clarification_history": history}
+                return {"question": question, "clarification_history": history,
+                        "clarification_count": state["clarification_count"] + 1}
             if type(response.get("is_jump")) is not bool:
                 raise ValueError("is_jump must be a boolean.")
             return {
@@ -145,12 +164,23 @@ def build_workflow(services: WorkflowServices | None = None, checkpointer=None):
         return "ask_clarification" if state["question"] else "parse_intent"
 
     def ask_clarification(state: SamanthaState):
-        answer = interrupt({"kind": "clarification", "message": state["question"]})
-        if not isinstance(answer, str):
-            return _failure("Invalid clarification", ValueError("A text answer is required."))
-        if answer.strip().lower() in {"stop", "quit", "exit", "cancel", "取消", "退出", "停止"}:
-            return {"status": "cancelled"}
-        return {"user_turn": answer.strip()}
+        message = state["question"]
+        # Resume replays this node and its prior interrupt answers. Keep model
+        # calls and history updates outside this loop.
+        for _ in range(MAX_EMPTY_ANSWERS):
+            answer = interrupt({"kind": "clarification", "message": message})
+            if not isinstance(answer, str):
+                return _failure("Invalid clarification", ValueError("A text answer is required."))
+            answer = answer.strip()
+            if answer.lower() in CANCEL_ANSWERS:
+                return {"status": "cancelled"}
+            if answer:
+                return {"user_turn": answer, "clarification_answers": state["clarification_answers"] + [
+                    {"question": state["question"], "answer": answer},
+                ]}
+            message = "Please provide a non-empty answer, or type 'cancel' to stop.\n" + state["question"]
+        return _failure("Invalid clarification", ValueError(
+            f"No non-empty answer received after {MAX_EMPTY_ANSWERS} attempts."))
 
     def parse_intent(state: SamanthaState):
         try:

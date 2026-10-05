@@ -19,6 +19,7 @@ def parser():
     show = commands.add_parser("show", help="Show all turns and operations in order")
     show.add_argument("session_id", help="Full session ID or latest")
     show.add_argument("--json", action="store_true")
+    show.add_argument("--reasoning-only", action="store_true", help="Show only provider-returned reasoning events")
     export = commands.add_parser("export", help="Export a complete session as JSON or JSONL")
     export.add_argument("session_id", help="Full session ID or latest")
     export.add_argument("--format", choices=("json", "jsonl"), default="json")
@@ -62,6 +63,8 @@ def main(argv=None):
                 return 0
             data = journal.read_session(args.session_id)
         if args.command == "show":
+            if args.reasoning_only:
+                data["events"] = [event for event in data["events"] if event["kind"] == "model_reasoning"]
             if args.json:
                 print(json.dumps(data, ensure_ascii=False, indent=2))
             else:

@@ -10,6 +10,7 @@ Samantha 默认开启 SQLite 日志，无需额外安装依赖。每次自然语
 samantha history list
 samantha history list --limit 50 --json
 samantha history show latest
+samantha history show latest --reasoning-only
 samantha history show <session_id> --json
 samantha history export latest --output session.json
 samantha history export <session_id> --format jsonl --output session.jsonl
@@ -57,6 +58,7 @@ Docker Compose 默认使用 `/work/.samantha/interactions.sqlite3`，对应宿�
 | `assistant_output` / `prompt` | 终端响应、进度、提问、确认提示、输出及 stdout/stderr 来源 |
 | `operation_started` | 操作 ID、名称及传入参数，在调用之前提交 |
 | `operation_finished` | 相同操作 ID、返回结果或异常类型/信息，以及执行耗时 |
+| `model_reasoning` | 接口返回的思考内容、来源字段、模型、调用 ID、所属操作和完成状态 |
 | `workflow_update` | 各节点更新，包括意图、命令、说明、批准结果、重试次数和状态 |
 | `awaiting_input` | 等待澄清或确认的完整内容 |
 | `interrupted` / `workflow_error` | EOF、Ctrl+C 或运行异常 |
@@ -75,6 +77,37 @@ Docker Compose 默认使用 `/work/.samantha/interactions.sqlite3`，对应宿�
 出现在后续 `workflow_update` 和最终会话状态中。命令生成记录代表计划，
 只有执行操作记录才表示调用了执行器。拒绝确认不会生成执行操作。
 
+## 模型返回的思考内容
+
+默认启用 `SAMANTHA_LOG_REASONING=true`。它只保存接口已经返回的内容，
+不修改 `QWEN_REASONING_EFFORT`，也不主动要求模型生成思考过程。
+当前默认 `QWEN_REASONING_EFFORT=none` 保持不变，因此模型可能不返回思考内容。
+可设置 `SAMANTHA_LOG_REASONING=false` 停止记录这类事件。
+
+支持 Ollama 原生响应的 `message.thinking`、兼容接口响应中的
+`reasoning_content` / `reasoning` / `thinking` 字符串，以及最终响应开头的
+`<think>...</think>` 内容。Ollama 的独立字段见
+[官方 thinking 文档](https://docs.ollama.com/capabilities/thinking)。这些内容在
+最终回答校验之前保存，不参与命令 JSON 解析，也不会进入后续模型对话历史。
+内容索引和问答使用的 Qwen VL 接口也按相同方式记录。
+
+每个事件保存 `call_id`、`model`、`provider`、`transport`、`source`、`text`、
+`available`、`complete` 和 `finish_reason`；在工作流操作中，还包含
+`operation_id` 和 `operation_name`，可以定位是哪个 agent、哪一轮或哪次重试。
+同一个响应的多个来源字段共享 `call_id`。没有返回思考内容时保存
+`available=false, text=null`，不会根据最终回答补写或推测思考过程。
+被 token 上限截断、尚未结束的响应或未闭合的 `<think>` 内容标记
+`complete=false`，已返回的文本仍会保留。
+
+```bash
+samantha history show latest --reasoning-only
+samantha history show <session_id> --reasoning-only --json
+```
+
+完整 JSON 和 JSONL 导出也包含这些事件。已经保存的旧会话没有返回文本的，
+无法事后补全。非流式调用只记录接口实际送达的响应；网络中断前没有收到的
+token 无法保存。
+
 ## 持久化和边界
 
 每个事件独立提交，SQLite 使用 WAL、`synchronous=FULL` 和 30 秒锁等待。
@@ -92,7 +125,7 @@ Docker Compose 默认使用 `/work/.samantha/interactions.sqlite3`，对应宿�
 持久化日志不提供跨进程继续执行或自动把历史会话送入模型的功能。
 
 日志保存用户输入和工具返回的完整文本，不做截断或自动清理。模型角色记录
-保存其调用参数和最终返回内容，不采集模型内部推理、环境变量或 API 密钥配置。
+保存其调用参数、最终返回内容及接口显式返回的思考文本，不采集环境变量或 API 密钥配置。
 用户文本、命令输出和搜索来源本身可能包含敏感内容，应按本地数据管理日志
 和导出文件。SQLite 数据库不加密；运行中备份应使用 SQLite backup API，
 避免只复制主数据库而漏掉 WAL 中已提交的记录。
@@ -107,3 +140,8 @@ Docker Compose 默认使用 `/work/.samantha/interactions.sqlite3`，对应宿�
 验证完整多轮记录、确认前提交、取消、错误与重试、原始 shell 输出、日志
 写入失败时停止执行、并发连接、子进程强制退出、历史查询与 JSON/JSONL 导出，
 以及 content 的输出和配置密钥排除。测试日志使用临时目录。
+
+`test_model_reasoning.py` 验证兼容接口的扩展字段、Ollama 原生字段、
+`<think>` 提取、截断或未完成响应、agent/轮次/重试关联、记录开关、
+日志写入失败时停止、内容分析接口和带思考内容的历史导出。接口全部使用
+模拟响应，不额外开启思考模式或调用真实模型。

@@ -96,6 +96,9 @@ Our current version of **Samantha** successfully implements all core features fr
 
 Durable interaction logging now records every user turn, terminal response,
 workflow operation, approval, execution result, error, and retry in SQLite.
+Model API reasoning (`thinking`, `reasoning_content`, `reasoning`, or a leading
+`<think>` block) is stored separately when returned, with its agent operation,
+model, and completion status. Model thinking settings are unchanged.
 Use `samantha history list`, `samantha history show latest`, or
 `samantha history export latest --output session.json`. See
 [the interaction logging guide](readme_help/interaction_logging.md) for storage,

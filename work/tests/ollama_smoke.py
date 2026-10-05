@@ -19,6 +19,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
 from chat import Chat
+from clarification_context import build_clarification_input
 from clarify_intent import clarify_intent_once
 from langgraph.types import Command
 from run_commands import run_commands
@@ -134,7 +135,8 @@ def main():
                     {"role": "user", "content": "Create a file."},
                     {"role": "assistant", "content": response["question"]},
                 ]
-                response = clarify_intent_once("Name it clarified.txt, in the current directory, and stay here.", history)
+                prompt = build_clarification_input("Create a file.", response["question"], "clarified.txt")
+                response = clarify_intent_once(prompt, history)
                 assert "clarified.txt" in response.get("requirement_summary", ""), response
                 assert response["is_jump"] is False
                 report["clarification"] = "passed"

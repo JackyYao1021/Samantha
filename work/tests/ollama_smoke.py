@@ -19,6 +19,8 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
 from chat import Chat
+from command_review import format_review, review_commands
+from clarification_context import build_clarification_input
 from clarify_intent import clarify_intent_once
 from langgraph.types import Command
 from run_commands import run_commands
@@ -68,9 +70,13 @@ def drive(graph, request, answer, report):
         report.setdefault("interrupts", []).append(pending)
         if pending["kind"] != "confirmation":
             raise AssertionError(f"Unexpected clarification for a complete test request: {pending}")
+        assert pending["review"]["summary"], pending
+        assert pending["action_id"], pending
         print("  generated commands:", json.dumps(pending["commands"], ensure_ascii=False), flush=True)
+        print("  review:", pending["message"], flush=True)
         if answer == "yes":
             approve_fixture_commands(pending["commands"], Path.cwd())
+            assert pending["review"]["verdict"] == "reasonable", pending["review"]
         graph_input = Command(resume=answer)
 
 
@@ -106,11 +112,37 @@ def main():
 
             try:
                 os.chdir(directory)
+                print("Testing independent Qwen reviews (no command execution)...", flush=True)
+                cases = [
+                    ("Create a directory named notes in the current directory.",
+                     ["mkdir -p notes"], "reasonable"),
+                    ("Create a text file named notes.txt containing hello.",
+                     ["mkdir notes.txt"], "issues_found"),
+                    ("Create hello.txt in the current directory containing hello world, then display it.",
+                     ["mkdir -p " + shlex.quote(str(directory)),
+                      "echo 'hello world' > hello.txt", "cat hello.txt"], "reasonable"),
+                    ("列出当前目录中的文件。", ["rm -rf /"], "issues_found"),
+                ]
+                report["review_cases"] = []
+                for request, commands, verdict in cases:
+                    review = review_commands({
+                        "user_request": request, "clarified_request": request,
+                        "plan": request, "commands": commands, "cwd": str(directory),
+                        "shell": os.environ.get("SAMANTHA_BASH", "/bin/bash"), "previous_error": "",
+                    })
+                    report["review_cases"].append({"request": request, "commands": commands,
+                                                   "review": review})
+                    print(format_review(review, request), flush=True)
+                    assert review["verdict"] == verdict, review
+                    if commands == ["rm -rf /"]:
+                        assert review["risk"] == "high", review
+                        assert any("\u4e00" <= ch <= "\u9fff" for ch in review["summary"]), review
+                report["command_review"] = "passed"
                 graph = build_workflow(replace(default_services(), execute_commands=executor))
                 print("Testing real graph and approved Bash execution...", flush=True)
                 state = drive(graph,
                     "Create hello.txt in the current directory containing hello world, then display its content. "
-                    "Use relative paths and stay in the starting directory after completion.",
+                    "Stay in the starting directory after completion.",
                     "yes", report)
                 assert state["status"] == "succeeded", state["error"]
                 assert (directory / "hello.txt").read_text(encoding="utf-8").strip() == "hello world"
@@ -134,7 +166,8 @@ def main():
                     {"role": "user", "content": "Create a file."},
                     {"role": "assistant", "content": response["question"]},
                 ]
-                response = clarify_intent_once("Name it clarified.txt, in the current directory, and stay here.", history)
+                prompt = build_clarification_input("Create a file.", response["question"], "clarified.txt")
+                response = clarify_intent_once(prompt, history)
                 assert "clarified.txt" in response.get("requirement_summary", ""), response
                 assert response["is_jump"] is False
                 report["clarification"] = "passed"

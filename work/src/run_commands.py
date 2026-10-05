@@ -1,5 +1,6 @@
 import subprocess
 import os
+from interaction_log import InteractionLogError, operation
 
 def run_commands(commands):
     """
@@ -21,12 +22,13 @@ def run_commands(commands):
         script = " && ".join(commands + ["pwd"])
 
         # use bash to run the commands
-        result = subprocess.run(
-            [os.environ.get("SAMANTHA_BASH", "/bin/bash"), "-c", script],
-            shell=False,
-            text=True,
-            capture_output=True
-        )
+        argv = [os.environ.get("SAMANTHA_BASH", "/bin/bash"), "-c", script]
+        with operation("shell.execute", {"commands": commands, "argv": argv,
+                                         "cwd": current_dir}) as outcome:
+            result = subprocess.run(argv, shell=False, text=True, capture_output=True)
+            outcome["result"] = {"returncode": result.returncode,
+                                 "stdout": result.stdout, "stderr": result.stderr}
+            outcome["status"] = "succeeded" if result.returncode == 0 else "failed"
 
         success = (result.returncode == 0)
 
@@ -47,6 +49,8 @@ def run_commands(commands):
             "current_dir": current_dir,
             "output": output.strip()
         }
+    except InteractionLogError:
+        raise
     except Exception as e:
         return {
             "success": False,

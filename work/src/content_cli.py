@@ -1,8 +1,10 @@
 """CLI: python work/src/content_cli.py index|search|ask ..."""
 
 import argparse
+from contextlib import redirect_stderr, redirect_stdout
 import json
 from pathlib import Path
+import shlex
 import sys
 
 from dotenv import load_dotenv
@@ -10,6 +12,7 @@ from dotenv import load_dotenv
 from content_search.config import Settings, WORK_DIR
 from content_search.diagnostics import diagnose
 from content_search.pipeline import ContentPipeline
+from interaction_log import InteractionJournal, InteractionLogError, LoggedStream, operation, record_operation
 
 
 def parser():
@@ -32,30 +35,52 @@ def parser():
 
 
 def main(argv=None):
-    args = parser().parse_args(argv)
     load_dotenv(WORK_DIR.parent / ".env", override=False)
+    argv = list(sys.argv[1:] if argv is None else argv)
+    try:
+        with InteractionJournal() as journal, journal.start_session(
+            shlex.join(["content", *argv]), kind="content", metadata={"argv": argv}
+        ) as session:
+            with redirect_stdout(LoggedStream(sys.stdout, session, "stdout")), \
+                    redirect_stderr(LoggedStream(sys.stderr, session, "stderr")):
+                status = _main(argv)
+            session.finish("succeeded" if status == 0 else "failed",
+                           error="" if status == 0 else f"Content command exited with status {status}.",
+                           details={"exit_code": status})
+            return status
+    except InteractionLogError as exc:
+        print(str(exc), file=sys.stderr)
+        return 1
+
+
+def _main(argv):
+    args = parser().parse_args(argv)
     pipeline = None
     try:
         settings = Settings.from_env()
         if args.command == "doctor":
-            checks = diagnose(settings)
+            checks = record_operation("content.doctor", diagnose, settings)
             if args.json:
                 print(json.dumps(checks, ensure_ascii=False, indent=2))
             else:
                 for check in checks:
                     print(f"{'OK' if check['ready'] else 'MISSING'} {check['component']}: {check['detail']}")
             return 0 if all(check["ready"] for check in checks) else 1
-        pipeline = ContentPipeline(settings)
+        with operation("content.initialize", {"settings": settings}):
+            pipeline = ContentPipeline(settings)
         if args.command == "index":
-            data = pipeline.index(args.path, force=args.force,
-                                  progress=lambda message: print(message, file=sys.stderr))
+            # The callback itself is not serialized; it tees its output to the log.
+            data = record_operation("content.index", lambda path, force: pipeline.index(
+                path, force=force, progress=lambda message: print(message, file=sys.stderr)),
+                args.path, args.force)
             if not data:
                 raise ValueError("No supported files found.")
             status = 1 if any(item["status"] == "failed" for item in data) else 0
         else:
             query = " ".join(args.query)
             method = pipeline.search if args.command == "search" else pipeline.ask
-            data = method(query, limit=args.limit, tags=args.tag, extension=args.ext)
+            data = record_operation("content." + args.command, method, query,
+                                    limit=args.limit, tags=args.tag, extension=args.ext)
             status = 0
         if args.json:
             print(json.dumps(data, ensure_ascii=False, indent=2))
@@ -82,12 +107,15 @@ def main(argv=None):
             for index, source in enumerate(data["sources"], 1):
                 print(f"[{index}] {source['path']} page={source['page']} kind={source['kind']}")
         return status
+    except InteractionLogError:
+        raise
     except Exception as exc:
         print(f"Content search failed: {exc}", file=sys.stderr)
         return 1
     finally:
         if pipeline is not None:
-            pipeline.close()
+            with operation("content.close", {}):
+                pipeline.close()
 
 
 if __name__ == "__main__":

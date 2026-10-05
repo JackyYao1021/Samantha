@@ -44,8 +44,11 @@ for the graph, state lifecycle, tests, and current limitations.
 - **Agent-2 – Shell Command Generator:**  
   Converts these steps into robust and executable shell commands tailored for the openEuler environment.
 
-- **Agent-3 – Code Confirmation Agent:**  
-  Summarizes the commands in plain language and asks for user confirmation, especially for risky operations and permission-related actions, before execution.
+- **Agent-3 – Independent Command Reviewer:**
+  Uses local Qwen to assess the exact commands against the user request, plan,
+  working directory, and previous error. It returns a plain-language assessment,
+  effects, problems, unknowns, and recommendation. A separate human confirmation
+  node authorizes execution; every corrected command sequence is reviewed again.
 
 - **Agent-e – Error Correction Agent:**  
   Monitors execution results. If a command fails, it analyzes the error, adjusts the plan, and sends the updated result back to Agent-2 to automatically regenerate commands and retry execution.
@@ -94,9 +97,16 @@ Our current version of **Samantha** successfully implements all core features fr
 ![keyword search](readme_help/t3_example2.png)
 *Figure：example of asking for clarification.*
 
-Tier 3 features such as organizational intelligence and durable interaction
-memory are still future work. LangGraph provides an explicit workflow
-on which those extensions can be built.
+Durable interaction logging now records every user turn, terminal response,
+workflow operation, approval, execution result, error, and retry in SQLite.
+Model API reasoning (`thinking`, `reasoning_content`, `reasoning`, or a leading
+`<think>` block) is stored separately when returned, with its agent operation,
+model, and completion status. Model thinking settings are unchanged.
+Use `samantha history list`, `samantha history show latest`, or
+`samantha history export latest --output session.json`. See
+[the interaction logging guide](readme_help/interaction_logging.md) for storage,
+event format, exports, and verification. Organizational intelligence and
+automatic recall of prior conversations remain future work.
 
 ### File and Image Content Search
 
@@ -117,7 +127,7 @@ The following extensions are planned:
 ![Future Architecture](readme_help/Group_12.png)
 *Figure：Architecture for the future development*
 
-- **Persistent logging and checkpoints:** The current graph keeps checkpoints in memory for one process. Durable interaction, execution, and error logs still need implementation.
+- **Persistent checkpoints and memory:** Durable interaction, execution, and error logs are implemented. The graph still keeps checkpoints in memory for one process; cross-process workflow resume and automatic conversation recall remain future work.
 - **Vector database:** Qdrant-backed content search is implemented. Automated deletion/move synchronization and visual-similarity embeddings are future extensions.
 - **External tools:** LangGraph orchestration is implemented. Additional tools beyond the Bash executor can be introduced through dedicated nodes.
 

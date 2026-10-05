@@ -3,6 +3,7 @@
 from dataclasses import replace
 from io import BytesIO
 import json
+import os
 from pathlib import Path
 import sys
 import tempfile
@@ -261,6 +262,15 @@ class ExtractionTests(unittest.TestCase):
 
 
 class AdapterTests(unittest.TestCase):
+    def setUp(self):
+        directory = tempfile.TemporaryDirectory()
+        self.addCleanup(directory.cleanup)
+        environment = patch.dict(os.environ, {
+            "SAMANTHA_LOG_PATH": str(Path(directory.name) / "interactions.sqlite3"),
+        })
+        environment.start()
+        self.addCleanup(environment.stop)
+
     def test_doctor_checks_real_embedded_qdrant_and_reports_missing_models(self):
         with tempfile.TemporaryDirectory() as temp, patch("content_search.diagnostics.OpenAI") as client:
             client.return_value.__enter__.return_value.models.list.return_value.data = []

@@ -11,13 +11,24 @@ import uuid
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
-from clarify_intent import parse_clarification_reply
+from clarify_intent import clarify_user_intent, parse_clarification_reply
 from chat import Chat, request_text, response_text
+from command_review import command_action_id
 from types import SimpleNamespace
 from langgraph.types import Command
 from model_output import parse_commands
 from samantha import main, process
 from workflow import WorkflowServices, build_workflow, initial_state
+
+
+def review_fixture():
+    return {
+        "verdict": "reasonable", "risk": "low",
+        "summary": "Create test.txt in the current directory.",
+        "effects": ["Creates an empty file, or updates its timestamp if it exists."],
+        "issues": [], "uncertainties": ["Whether test.txt already exists is unknown."],
+        "recommendation": "Proceed if this is the intended file.",
+    }
 
 
 def services():
@@ -27,7 +38,7 @@ def services():
         generate_commands=Mock(return_value=json.dumps({
             "Commands": ["touch test.txt"], "Explanation": "Create a file."
         })),
-        explain_commands=Mock(return_value="Create test.txt. Proceed? (y/n)"),
+        review_commands=Mock(return_value=review_fixture()),
         correct_error=Mock(return_value="Create the missing parent folder, then the file."),
         execute_commands=Mock(return_value={
             "success": True, "output": "done", "current_dir": "/destination"
@@ -35,10 +46,11 @@ def services():
     )
 
 
-def start(fake_services, max_retries=3, graph=None, thread_id=None):
+def start(fake_services, max_retries=3, graph=None, thread_id=None, max_clarifications=3):
     graph = graph if graph is not None else build_workflow(fake_services)
     config = {"configurable": {"thread_id": thread_id or uuid.uuid4().hex}, "recursion_limit": 100}
-    return graph, config, graph.invoke(initial_state("Create a file", max_retries=max_retries), config)
+    return graph, config, graph.invoke(initial_state(
+        "Create a file", max_retries=max_retries, max_clarifications=max_clarifications), config)
 
 
 class WorkflowTests(unittest.TestCase):
@@ -56,7 +68,99 @@ class WorkflowTests(unittest.TestCase):
         fake.clarify.assert_called_once()
         fake.parse_intent.assert_called_once()
         fake.generate_commands.assert_called_once()
-        fake.explain_commands.assert_called_once()
+        fake.review_commands.assert_called_once()
+        self.assertEqual(pending["review"], review_fixture())
+        self.assertIn("Whether test.txt already exists is unknown.", pending["message"])
+        self.assertEqual(pending["cwd"], os.getcwd())
+        self.assertEqual(pending["action_id"], command_action_id(
+            pending["commands"], pending["cwd"], pending["shell"]))
+
+    def test_reviewer_receives_request_plan_commands_directory_and_previous_error(self):
+        fake = services()
+        fake.execute_commands.side_effect = [
+            {"success": False, "output": "missing folder", "current_dir": os.getcwd()},
+            {"success": True, "output": "done", "current_dir": os.getcwd()},
+        ]
+        fake.generate_commands.side_effect = [
+            '{"Commands": ["touch missing/test.txt"]}',
+            '{"Commands": ["mkdir -p missing", "touch missing/test.txt"]}',
+        ]
+        graph, config, first = start(fake)
+        request = fake.review_commands.call_args.args[0]
+        self.assertEqual(request["user_request"], "Create a file")
+        self.assertEqual(request["clarified_request"], "Create a test file.")
+        self.assertEqual(request["plan"], "Create test.txt in the current directory.")
+        self.assertEqual(request["commands"], ["touch missing/test.txt"])
+        self.assertEqual(request["cwd"], os.getcwd())
+        self.assertEqual(request["previous_error"], "")
+        second = graph.invoke(Command(resume="y"), config)
+        self.assertEqual(fake.review_commands.call_count, 2)
+        request = fake.review_commands.call_args.args[0]
+        self.assertEqual(request["commands"], ["mkdir -p missing", "touch missing/test.txt"])
+        self.assertEqual(request["previous_error"], "missing folder")
+        self.assertNotEqual(first["reviewed_action_id"], second["reviewed_action_id"])
+        self.assertFalse(second["approved"])
+        self.assertEqual(second["approved_action_id"], "")
+        fake.execute_commands.assert_called_once()
+
+    def test_review_problems_are_displayed_and_human_can_decline(self):
+        fake = services()
+        fake.review_commands.return_value = {**review_fixture(), "verdict": "issues_found",
+            "risk": "high", "issues": ["Deletes a file instead of creating it."],
+            "recommendation": "Reject and revise the commands."}
+        graph, config, state = start(fake)
+        self.assertIn("Deletes a file instead of creating it.", state["__interrupt__"][0].value["message"])
+        fake.execute_commands.assert_not_called()
+        state = graph.invoke(Command(resume="n"), config)
+        self.assertEqual(state["status"], "cancelled")
+        fake.execute_commands.assert_not_called()
+
+    def test_invalid_review_never_reaches_confirmation_or_execution(self):
+        for review in (None, {}, {**review_fixture(), "summary": ""},
+                       {**review_fixture(), "verdict": "approved"},
+                       {**review_fixture(), "verdict": "issues_found", "issues": []}):
+            with self.subTest(review=review):
+                fake = services()
+                fake.review_commands.return_value = review
+                _, _, state = start(fake)
+                self.assertEqual(state["status"], "failed")
+                self.assertIn("Command review failed", state["error"])
+                self.assertNotIn("__interrupt__", state)
+                fake.execute_commands.assert_not_called()
+
+    def test_changed_commands_cannot_use_the_original_confirmation(self):
+        fake = services()
+        graph, config, _ = start(fake)
+        graph.update_state(config, {"commands": ["rm test.txt"]})
+        state = graph.invoke(Command(resume="y"), config)
+        self.assertEqual(state["status"], "failed")
+        self.assertIn("reviewed action has changed", state["error"])
+        fake.execute_commands.assert_not_called()
+
+    def test_changed_directory_or_shell_cannot_use_the_original_confirmation(self):
+        for change in ("cwd", "shell"):
+            with self.subTest(change=change):
+                fake = services()
+                graph, config, _ = start(fake)
+                context = (patch("workflow.os.getcwd", return_value="/different") if change == "cwd"
+                           else patch.dict(os.environ, {"SAMANTHA_BASH": "different-bash"}))
+                with context:
+                    state = graph.invoke(Command(resume="y"), config)
+                self.assertEqual(state["status"], "failed")
+                fake.execute_commands.assert_not_called()
+
+    def test_executor_checks_identity_even_after_approval_node_has_completed(self):
+        fake = services()
+        graph, config, state = start(fake)
+        graph.update_state(config, {
+            "approved": True, "approved_action_id": state["reviewed_action_id"],
+            "commands": ["rm test.txt"],
+        }, as_node="confirm")
+        state = graph.invoke(None, config)
+        self.assertEqual(state["status"], "failed")
+        self.assertIn("approved action has changed", state["error"])
+        self.assertEqual(state["approved_action_id"], "")
+        fake.execute_commands.assert_not_called()
 
     def test_rejection_or_unrecognized_answer_never_executes(self):
         for answer in ("n", "no", "", "maybe", False, 1, {"approved": True}):
@@ -81,13 +185,176 @@ class WorkflowTests(unittest.TestCase):
         state = graph.invoke(Command(resume="hello"), config)
         self.assertEqual(state["__interrupt__"][0].value["kind"], "confirmation")
         self.assertEqual(fake.clarify.call_count, 3)
-        self.assertEqual(fake.clarify.call_args.args, ("hello", [
+        prompt, history = fake.clarify.call_args.args
+        self.assertIn("Original task: Create a file", prompt)
+        self.assertIn("Previous clarification question: What content?", prompt)
+        self.assertIn("User answer to that question: hello", prompt)
+        self.assertIn('"question": "What file name?", "answer": "test.txt"', prompt)
+        self.assertIn('Resolved file name supplied by the user: "test.txt"', prompt)
+        self.assertEqual(history, [
             {"role": "user", "content": "Create a file"},
             {"role": "assistant", "content": "What file name?"},
             {"role": "user", "content": "test.txt"},
             {"role": "assistant", "content": "What content?"},
-        ]))
+        ])
         fake.execute_commands.assert_not_called()
+
+    def test_short_answer_is_attached_to_current_task_with_prior_terminal_history(self):
+        fake = services()
+        fake.clarify.side_effect = [
+            {"question": "What should the file be named?"},
+            {"is_jump": False, "requirement_summary": "Write binary search in binary_search.py."},
+        ]
+        prior = [{"role": "user", "content": "List my downloads."}]
+        request = "help me create a py file and wrote a binary search code in it"
+        graph = build_workflow(fake)
+        config = {"configurable": {"thread_id": uuid.uuid4().hex}}
+        graph.invoke(initial_state(request, prior), config)
+        state = graph.invoke(Command(resume="binary_search"), config)
+        prompt, history = fake.clarify.call_args.args
+        self.assertIn("Original task: " + request, prompt)
+        self.assertIn("Previous clarification question: What should the file be named?", prompt)
+        self.assertIn("User answer to that question: binary_search", prompt)
+        self.assertIn('Resolved file name supplied by the user: "binary_search.py"', prompt)
+        self.assertNotIn("List my downloads.", prompt)
+        self.assertEqual(history, prior + [
+            {"role": "user", "content": request},
+            {"role": "assistant", "content": "What should the file be named?"},
+        ])
+        self.assertEqual(state["__interrupt__"][0].value["kind"], "confirmation")
+        self.assertEqual(state["clarification_answers"], [
+            {"question": "What should the file be named?", "answer": "binary_search"},
+        ])
+        fake.parse_intent.assert_called_once_with("Write binary search in binary_search.py.")
+        fake.execute_commands.assert_not_called()
+
+    def test_empty_answers_reprompt_without_model_calls_or_history_pollution(self):
+        fake = services()
+        fake.clarify.side_effect = [
+            {"question": "What file name?"},
+            {"is_jump": False, "requirement_summary": "Create test.txt."},
+        ]
+        graph, config, state = start(fake)
+        original_history = state["clarification_history"]
+        for answer in ("", " \t "):
+            state = graph.invoke(Command(resume=answer), config)
+            self.assertIn("non-empty answer", state["__interrupt__"][0].value["message"])
+            self.assertEqual(state["clarification_history"], original_history)
+            self.assertEqual(state["clarification_count"], 1)
+            self.assertEqual(state["clarification_answers"], [])
+            self.assertEqual(fake.clarify.call_count, 1)
+        state = graph.invoke(Command(resume="test.txt"), config)
+        self.assertEqual(state["__interrupt__"][0].value["kind"], "confirmation")
+        self.assertEqual(fake.clarify.call_count, 2)
+        fake.execute_commands.assert_not_called()
+
+    def test_explicit_file_extension_and_directory_names_are_preserved(self):
+        for question, answer, kind in (
+            ("What file name?", "notes.txt", "file"),
+            ("What folder name?", "scripts", "directory"),
+        ):
+            with self.subTest(answer=answer):
+                fake = services()
+                fake.clarify.side_effect = [
+                    {"question": question},
+                    {"is_jump": False, "requirement_summary": "Create the requested item."},
+                ]
+                graph, config, _ = start(fake)
+                graph.invoke(Command(resume=answer), config)
+                prompt = fake.clarify.call_args.args[0]
+                self.assertIn(f'Resolved {kind} name supplied by the user: "{answer}"', prompt)
+                self.assertNotIn(answer + ".py", prompt)
+
+    def test_sentences_and_uncertain_answers_are_not_labeled_as_literal_names(self):
+        for answer in ("I do not know", "unknown", "Please name it hello.py"):
+            with self.subTest(answer=answer):
+                fake = services()
+                fake.clarify.side_effect = [
+                    {"question": "What file name?"},
+                    {"is_jump": False, "requirement_summary": "Create the requested file."},
+                ]
+                graph, config, _ = start(fake)
+                graph.invoke(Command(resume=answer), config)
+                self.assertNotIn("Resolved file name", fake.clarify.call_args.args[0])
+
+    def test_three_empty_answers_end_without_another_model_call(self):
+        fake = services()
+        fake.clarify.return_value = {"question": "What file name?"}
+        graph, config, _ = start(fake)
+        for _ in range(3):
+            state = graph.invoke(Command(resume=""), config)
+        self.assertEqual(state["status"], "failed")
+        self.assertIn("3 attempts", state["error"])
+        self.assertNotIn("__interrupt__", state)
+        fake.clarify.assert_called_once()
+        fake.execute_commands.assert_not_called()
+
+    def test_cancel_after_empty_answer_never_calls_model_again(self):
+        fake = services()
+        fake.clarify.return_value = {"question": "What file name?"}
+        graph, config, _ = start(fake)
+        graph.invoke(Command(resume=""), config)
+        state = graph.invoke(Command(resume="取消"), config)
+        self.assertEqual(state["status"], "cancelled")
+        fake.clarify.assert_called_once()
+        fake.execute_commands.assert_not_called()
+
+    def test_repeated_answered_question_fails_without_execution(self):
+        fake = services()
+        fake.clarify.side_effect = [
+            {"question": "What file name?"},
+            {"question": "  WHAT  FILE NAME ! "},
+        ]
+        graph, config, _ = start(fake)
+        state = graph.invoke(Command(resume="binary_search"), config)
+        self.assertEqual(state["status"], "failed")
+        self.assertIn("repeated a question", state["error"])
+        self.assertNotIn("__interrupt__", state)
+        self.assertEqual(state["retries"], 0)
+        fake.parse_intent.assert_not_called()
+        fake.execute_commands.assert_not_called()
+
+    def test_clarification_limit_bounds_different_questions(self):
+        fake = services()
+        fake.clarify.side_effect = [{"question": f"Missing detail {i}?"} for i in range(4)]
+        graph, config, _ = start(fake)
+        for i in range(3):
+            state = graph.invoke(Command(resume=f"answer {i}"), config)
+        self.assertEqual(state["status"], "failed")
+        self.assertIn("Clarification limit (3)", state["error"])
+        self.assertEqual(state["clarification_count"], 3)
+        self.assertEqual(state["retries"], 0)
+        self.assertNotIn("__interrupt__", state)
+        fake.execute_commands.assert_not_called()
+
+    def test_final_allowed_answer_can_complete_task(self):
+        fake = services()
+        fake.clarify.side_effect = [
+            {"question": "What file name?"},
+            {"is_jump": False, "requirement_summary": "Create test.txt."},
+        ]
+        graph, config, _ = start(fake, max_clarifications=1)
+        state = graph.invoke(Command(resume="test.txt"), config)
+        self.assertEqual(state["__interrupt__"][0].value["kind"], "confirmation")
+        state = graph.invoke(Command(resume="y"), config)
+        self.assertEqual(state["status"], "succeeded")
+        fake.execute_commands.assert_called_once()
+
+    def test_zero_clarifications_still_allows_a_complete_task(self):
+        fake = services()
+        _, _, state = start(fake, max_clarifications=0)
+        self.assertEqual(state["__interrupt__"][0].value["kind"], "confirmation")
+        fake = services()
+        fake.clarify.return_value = {"question": "What file name?"}
+        _, _, state = start(fake, max_clarifications=0)
+        self.assertEqual(state["status"], "failed")
+        self.assertNotIn("__interrupt__", state)
+        fake.execute_commands.assert_not_called()
+
+    def test_invalid_clarification_limits_are_rejected(self):
+        for limit in (-1, True, 1.5):
+            with self.subTest(limit=limit), self.assertRaises(ValueError):
+                initial_state("Create a file", max_clarifications=limit)
 
     def test_stop_during_clarification_ends_without_another_model_call(self):
         fake = services()
@@ -118,7 +385,7 @@ class WorkflowTests(unittest.TestCase):
                 self.assertEqual(state["status"], "failed")
                 self.assertIn("Command generation failed", state["error"])
                 self.assertNotIn("__interrupt__", state)
-                fake.explain_commands.assert_not_called()
+                fake.review_commands.assert_not_called()
                 fake.execute_commands.assert_not_called()
 
     def test_retry_limit_is_three_corrections_and_four_approved_executions(self):
@@ -139,7 +406,7 @@ class WorkflowTests(unittest.TestCase):
         self.assertNotIn("__interrupt__", state)
         self.assertEqual(fake.correct_error.call_count, 3)
         self.assertEqual(fake.generate_commands.call_count, 4)
-        self.assertEqual(fake.explain_commands.call_count, 4)
+        self.assertEqual(fake.review_commands.call_count, 4)
         self.assertEqual(fake.execute_commands.call_count, 4)
 
     def test_retry_can_succeed_and_must_be_confirmed_again(self):
@@ -176,7 +443,7 @@ class WorkflowTests(unittest.TestCase):
         fake.correct_error.assert_not_called()
 
     def test_agent_exceptions_stop_cleanly(self):
-        for agent in ("clarify", "parse_intent", "generate_commands", "explain_commands"):
+        for agent in ("clarify", "parse_intent", "generate_commands", "review_commands"):
             with self.subTest(agent=agent):
                 fake = services()
                 getattr(fake, agent).side_effect = RuntimeError("provider unavailable")
@@ -225,7 +492,35 @@ class WorkflowTests(unittest.TestCase):
         fake.execute_commands.assert_called_once()
 
 
+class StandaloneClarificationTests(unittest.TestCase):
+    def test_short_reply_uses_original_task_and_skips_empty_answer(self):
+        response = {"is_jump": False, "requirement_summary": "Write binary search in binary_search.py."}
+        with patch("clarify_intent.clarify_intent_once", side_effect=[
+            {"question": "What file name?"}, response,
+        ]) as clarify, patch("builtins.input", side_effect=["", "binary_search"]), patch("builtins.print"):
+            result = clarify_user_intent("Write binary search in a Python file.")
+        self.assertEqual(result, (False, response["requirement_summary"]))
+        self.assertEqual(clarify.call_count, 2)
+        self.assertIn("Original task: Write binary search in a Python file.", clarify.call_args.args[0])
+        self.assertIn("User answer to that question: binary_search", clarify.call_args.args[0])
+
+    def test_repeated_question_is_bounded(self):
+        with patch("clarify_intent.clarify_intent_once", return_value={"question": "What file name?"}), \
+                patch("builtins.input", return_value="test.txt"), patch("builtins.print"):
+            with self.assertRaisesRegex(ValueError, "repeated a question"):
+                clarify_user_intent("Create a file.")
+
+
 class TerminalTests(unittest.TestCase):
+    def setUp(self):
+        directory = tempfile.TemporaryDirectory()
+        self.addCleanup(directory.cleanup)
+        environment = patch.dict(os.environ, {
+            "SAMANTHA_LOG_PATH": str(Path(directory.name) / "interactions.sqlite3"),
+        })
+        environment.start()
+        self.addCleanup(environment.stop)
+
     def test_cli_drives_clarification_then_confirmation(self):
         fake = services()
         fake.clarify.side_effect = [
@@ -238,8 +533,25 @@ class TerminalTests(unittest.TestCase):
         self.assertEqual(state["status"], "succeeded")
         self.assertEqual(answers.call_count, 2)
         self.assertIn("touch test.txt", output)
+        self.assertTrue(any("# Command Review" in text for text in output))
+        self.assertIn("Working directory: " + os.getcwd(), output)
         self.assertEqual(fake.clarify.call_count, 2)
         fake.execute_commands.assert_called_once()
+
+    def test_cli_reprompts_empty_answer_then_accepts_short_reply(self):
+        fake = services()
+        fake.clarify.side_effect = [
+            {"question": "What file name?"},
+            {"is_jump": False, "requirement_summary": "Create test.txt."},
+        ]
+        output = []
+        answers = Mock(side_effect=["", "test.txt", "n"])
+        state = process("Create a file", services=fake, input_fn=answers, output_fn=output.append)
+        self.assertEqual(state["status"], "cancelled")
+        self.assertEqual(answers.call_count, 3)
+        self.assertEqual(fake.clarify.call_count, 2)
+        self.assertTrue(any("non-empty answer" in text for text in output))
+        fake.execute_commands.assert_not_called()
 
     def test_cancel_overwrites_old_directory_state(self):
         fake = services()

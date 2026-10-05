@@ -45,8 +45,11 @@ samantha "Create hello.txt in the current directory and write hello world to it"
 
 Compose selects `QWEN_API_MODE=ollama`, using the native `/api/chat` endpoint
 with `think=false` to request non-thinking output separately from the JSON format.
-Protocol reasoning fields are kept out of the displayed answer and history.
-The confirmation agent uses a compact prompt and a 768-token output budget;
+Protocol reasoning fields are kept out of the displayed answer and model chat
+history, and persisted separately in the interaction journal when returned.
+The independent command reviewer uses a compact prompt, a fixed JSON schema,
+and a 1536-token output budget. It reviews intent, paths, syntax, action effects,
+problems, and unknowns in the user's language before the human confirmation;
 truncated output is rejected before approval or execution.
 Small models can still produce verbose or inaccurate explanations; review the
 exact commands shown before approving. The `/v1` suffix in `QWEN_BASE_URL` is
@@ -78,6 +81,10 @@ tests and Bash wrapper tests, then calls the host's real `qwen3:4b` model to tes
 file creation, reading, cancellation, and follow-up clarification. Its report is
 saved to `work/.test-results/docker-ollama-smoke.json`. Use `-SkipBuild` to reuse
 an existing image. Docker and Ollama must both be running.
+The live test also checks local Qwen reviews of a directory creation, a
+file/directory mismatch, directory preparation followed by file writing,
+and a destructive command unrelated to the request.
+These review-only cases never execute their proposed commands.
 
 If Docker Hub times out while pulling the base image, download the same version
 from the [official openEuler repository](https://www.openeuler.org/en/wiki/install/image/)
@@ -124,7 +131,8 @@ overridable with `QWEN_TIMEOUT`. Set `QWEN_REASONING_EFFORT` to an empty string
 when a different backend does not support that request field.
 
 Azure fallback is **disabled by default**, even if a key exists. To explicitly
-enable it, configure your own deployment:
+enable it for agents other than the command reviewer, configure your own deployment.
+The command reviewer always uses the configured Qwen endpoint:
 
 ```bash
 export SAMANTHA_AZURE_FALLBACK='true'

@@ -5,6 +5,8 @@ from types import SimpleNamespace
 import httpx
 from openai import AzureOpenAI, OpenAI
 from model_output import parse_json_object
+from interaction_log import InteractionLogError
+from model_reasoning import log_message_reasoning, log_response_reasoning
 
 
 endpoint = "https://sencemaking.openai.azure.com/"
@@ -39,14 +41,14 @@ def response_text(response):
 
 class Chat:
     def __init__(self, begin_messages=None, max_tokens=4096, temperature=0.2, top_p=1.0,
-                 response_format=None):
+                 response_format=None, allow_azure_fallback=True):
         subscription_key = os.environ.get("AZURE_OPENAI_API_KEY")
         azure_fallback = os.environ.get("SAMANTHA_AZURE_FALLBACK", "false").lower() in {"1", "true", "yes"}
         self.client = AzureOpenAI(
             api_version=os.environ.get("AZURE_OPENAI_API_VERSION", api_version),
             azure_endpoint=os.environ.get("AZURE_OPENAI_ENDPOINT", endpoint),
             api_key=subscription_key,
-        ) if azure_fallback and subscription_key else None
+        ) if allow_azure_fallback and azure_fallback and subscription_key else None
         self.client_qwen = OpenAI(
             api_key=os.environ.get("QWEN_API_KEY", openai_api_key_qwen),
             base_url=os.environ.get("QWEN_BASE_URL", openai_api_base_qwen),
@@ -99,6 +101,7 @@ class Chat:
         return response_text(response)
     
     def send_message(self, message):
+        provider = "qwen"
         options = {"response_format": self.response_format} if self.response_format else {}
         qwen_options = dict(options)
         qwen_message = message
@@ -126,6 +129,8 @@ class Chat:
                     model=self.model_qwen,
                     **qwen_options,
                 )
+        except InteractionLogError:
+            raise
         except Exception as e:
             if self.client is None:
                 raise RuntimeError(
@@ -134,6 +139,7 @@ class Chat:
                     "Azure fallback is not configured or enabled. "
                     "Check Ollama, QWEN_BASE_URL and QWEN_MODEL."
                 ) from e
+            provider = "azure"
             response = self.client.chat.completions.create(
                 messages=message,
                 max_tokens=self.max_tokens,
@@ -142,6 +148,9 @@ class Chat:
                 model=self.model,
                 **options,
             )
+        if provider == "azure" or self.api_mode == "openai":
+            log_response_reasoning(response, model=self.model if provider == "azure" else self.model_qwen,
+                                   provider=provider)
         return response
 
     def _send_ollama(self, messages):
@@ -167,9 +176,12 @@ class Chat:
             response = client.post(root + "/api/chat", json=payload)
             response.raise_for_status()
             data = response.json()
+        log_message_reasoning(data.get("message", {}), model=self.model_qwen, provider="qwen",
+                              transport="ollama", finish_reason=data.get("done_reason"),
+                              response_complete=data.get("done") is True)
         if data.get("done") is not True:
             raise ValueError("Ollama returned an incomplete response.")
-        # Keep the existing interface; protocol reasoning is excluded from history.
+        # Reasoning is journaled above; only the final content enters chat history.
         return SimpleNamespace(choices=[SimpleNamespace(
             finish_reason="length" if data.get("done_reason") == "length" else "stop",
             message=SimpleNamespace(content=data.get("message", {}).get("content")),

@@ -10,9 +10,13 @@ live model tests are described in [the setup guide](how_to_use_Samantha.md).
 
 ```mermaid
 flowchart TD
-    start([START]) --> clarify[clarify]
+    start([START]) --> question[answer_file_question]
+    question -->|first or recent creation question| finish([END])
+    question -->|other request| clarify[clarify]
     clarify -->|missing information| ask[ask_clarification]
-    ask -->|answer| clarify
+    question -->|ambiguous first-use question| ask
+    ask -->|file-history clarification| question
+    ask -->|other answer| clarify
     clarify -->|complete| parse[parse_intent]
     parse --> generate[generate_commands]
     generate --> review[review_commands / local Qwen]
@@ -20,7 +24,7 @@ flowchart TD
     confirm -->|approved| execute[execute]
     execute -->|failure and retries remain| correct[correct_error]
     correct --> generate
-    execute -->|success or retries exhausted| finish([END])
+    execute -->|success or retries exhausted| finish
     clarify -->|cancelled or invalid output| finish
     ask -->|cancelled| finish
     confirm -->|declined| finish
@@ -29,6 +33,21 @@ flowchart TD
 An agent/provider exception or invalid structured output also ends the graph
 with `status="failed"`. Command failures allow at most three corrections,
 which means at most four approved executions in total.
+
+Before clarification, `answer_file_question` recognizes complete file-creation
+history questions such as `what file I just created?` and
+`show me the path of the first file I created`. With object tracking
+enabled, `load_objects` runs first and the answer uses the first or latest verified
+creation in the current user/project scope, with a fresh filesystem check and
+any later tracked rename. This branch sets `answer` and ends without model calls,
+shell commands, execution approval, or clearing the follow-up file focus. Missing
+or changed records are reported explicitly; disabled tracking is also explained.
+Compound requests containing an action retain the regular command workflow.
+An ambiguous question about the file "used first" asks whether the user means
+the first creation. A reply such as `the one I created first` goes back to the
+file-history node and resolves from ordered creation events, without asking the
+model to compare timestamps or requiring a recent focus. The query covers the
+current user/project scope, including creations outside the bounded prompt context.
 
 ## State and human input
 

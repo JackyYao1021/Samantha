@@ -26,6 +26,7 @@ from command_review import (
 from interaction_log import InteractionLogError, record_operation, operation, current_operation_reference
 from agent_memory import MemoryBackend, MemoryQuery, MemoryScope, pack_hits, with_memory
 from object_tracking.runtime import ObjectTracker, with_objects, tracking_action_id, format_effects
+from object_tracking.questions import creation_answer_order, creation_question_order, is_first_use_question
 
 
 class ExecutionResult(TypedDict):
@@ -69,6 +70,7 @@ class SamanthaState(TypedDict):
     reviewed_tracking_id: str
     approved_tracking_id: str
     tracking_error: str
+    answer: str
 
 
 @dataclass(frozen=True)
@@ -146,6 +148,7 @@ def initial_state(user_input: str, terminal_history=None, max_retries: int = 3,
         "reviewed_tracking_id": "",
         "approved_tracking_id": "",
         "tracking_error": "",
+        "answer": "",
     }
 
 
@@ -179,6 +182,62 @@ def build_workflow(services: WorkflowServices | None = None, checkpointer=None, 
             return {"object_context": record_operation("objects.context", object_tracker.context)}
         except Exception as exc:
             return _failure("Object state loading failed", exc)
+
+    def answer_file_question(state: SamanthaState):
+        order = creation_question_order(state["user_input"])
+        if order is None and is_first_use_question(state["user_input"]):
+            question = ("你是指最先创建的文件吗？我可以查询已验证的创建记录；"
+                        "如果指其他操作中的文件，请说明操作或文件路径。"
+                        if any("\u3400" <= char <= "\u9fff" for char in state["user_input"]) else
+                        "Do you mean the file you created first? I can look up verified creation "
+                        "records; otherwise, please specify the operation or file path.")
+            if state["clarification_answers"]:
+                reply = state["clarification_answers"][-1]
+                order = creation_answer_order(reply["answer"])
+                if reply["question"] == question and reply["answer"].strip().lower() in {
+                        "yes", "yes please", "是", "是的", "对", "对的"}:
+                    order = "first"
+            else:
+                try:
+                    check_clarification_question(question, state["question"],
+                                                 state["clarification_count"], state["max_clarifications"])
+                except Exception as exc:
+                    return _failure("Request clarification failed", exc)
+                history = state["clarification_history"] + [
+                    {"role": "user", "content": state["user_turn"]},
+                    {"role": "assistant", "content": question},
+                ]
+                return {"question": question, "clarification_history": history,
+                        "clarification_count": state["clarification_count"] + 1}
+        if order is None:
+            return {}
+        try:
+            if object_tracker is not None:
+                name, lookup = (("objects.answer_first_creation", object_tracker.answer_first_creation)
+                                if order == "first" else
+                                ("objects.answer_recent_creation", object_tracker.answer_recent_creation))
+                answer = record_operation(name, lookup, state["user_input"])
+            else:
+                answer = ("文件对象跟踪未启用，无法根据已验证记录确定你创建了哪个文件。"
+                          if any("\u3400" <= char <= "\u9fff" for char in state["user_input"]) else
+                          "File object tracking is disabled, so I cannot identify the file you "
+                          "created from verified records.")
+            return {"answer": answer, "question": "", "status": "succeeded"}
+        except Exception as exc:
+            return _failure("File history lookup failed", exc)
+
+    def route_file_question(state: SamanthaState):
+        if state["status"] != "running":
+            return END
+        if (is_first_use_question(state["user_input"]) and state["question"]
+                and not state["clarification_answers"]):
+            return "ask_clarification"
+        return "clarify"
+
+    def route_clarification_answer(state: SamanthaState):
+        if state["status"] != "running":
+            return END
+        return "answer_file_question" if is_first_use_question(state["user_input"]) else "clarify"
 
     def retrieve_memory(state: SamanthaState):
         try:
@@ -447,6 +506,7 @@ def build_workflow(services: WorkflowServices | None = None, checkpointer=None, 
 
     builder = StateGraph(SamanthaState)
     for name, node in {
+        "answer_file_question": answer_file_question,
         "clarify": clarify,
         "ask_clarification": ask_clarification,
         "parse_intent": parse_intent,
@@ -458,18 +518,22 @@ def build_workflow(services: WorkflowServices | None = None, checkpointer=None, 
     }.items():
         builder.add_node(name, node)
 
-    first_node = "load_objects" if object_tracker is not None else "clarify"
+    first_node = "load_objects" if object_tracker is not None else "answer_file_question"
     if object_tracker is not None:
         builder.add_node("load_objects", load_objects)
-        builder.add_conditional_edges("load_objects", continue_to("clarify"), ["clarify", END])
+        builder.add_conditional_edges("load_objects", continue_to("answer_file_question"),
+                                      ["answer_file_question", END])
     if memory is not None:
         builder.add_node("retrieve_memory", retrieve_memory)
         builder.add_edge(START, "retrieve_memory")
         builder.add_conditional_edges("retrieve_memory", continue_to(first_node), [first_node, END])
     else:
         builder.add_edge(START, first_node)
+    builder.add_conditional_edges("answer_file_question", route_file_question,
+                                  ["ask_clarification", "clarify", END])
     builder.add_conditional_edges("clarify", route_clarification, ["ask_clarification", "parse_intent", END])
-    builder.add_conditional_edges("ask_clarification", continue_to("clarify"), ["clarify", END])
+    builder.add_conditional_edges("ask_clarification", route_clarification_answer,
+                                  ["answer_file_question", "clarify", END])
     for source, target in [
         ("parse_intent", "generate_commands"),
         ("generate_commands", "review_commands"),

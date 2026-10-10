@@ -16,6 +16,7 @@ from agent_memory import MemoryScope, create_backend
 from agent_memory.journal import journal_session
 from object_tracking.store import ObjectStore
 from object_tracking.runtime import ObjectTracker
+from object_tracking.questions import is_file_history_question
 
 
 PROGRESS = {
@@ -103,7 +104,8 @@ def _process(initial_input, terminal_history, *, services, input_fn, output_fn, 
         "recursion_limit": 100,
     }
     graph_input = state
-    output_fn("Checking the clarity of your request...")
+    output_fn("Checking verified file creation records..." if is_file_history_question(initial_input)
+              else "Checking the clarity of your request...")
 
     try:
         while True:
@@ -157,7 +159,7 @@ def _process(initial_input, terminal_history, *, services, input_fn, output_fn, 
             state["tracking_error"] = (state.get("tracking_error", "") + "; " + str(exc)).strip("; ")
 
     if state["status"] == "succeeded":
-        output_fn("Commands executed successfully ^-^")
+        output_fn(state["answer"] if state.get("answer") else "Commands executed successfully ^-^")
     elif state["status"] == "cancelled":
         output_fn("Command execution cancelled by user.")
     else:

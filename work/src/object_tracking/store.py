@@ -247,6 +247,31 @@ class ObjectStore:
 
     context = latest_context
 
+    def latest_creation(self, scope):
+        return self.creation(scope, order="latest")
+
+    def first_creation(self, scope):
+        return self.creation(scope, order="first")
+
+    def creation(self, scope, *, order="latest"):
+        """Return the selected verified creation and its freshly inspected object.
+
+        Creation order is independent of focus and later rename/append events.
+        If that object is stale, do not silently substitute another creation.
+        """
+        if order not in {"first", "latest"}:
+            raise ValueError("Creation order must be first or latest.")
+        direction = "ASC" if order == "first" else "DESC"
+        with self._lock:
+            row = self.connection.execute(
+                "SELECT entity_id,new_path,session_id,operation_id,timestamp FROM object_events "
+                "WHERE user_id=? AND project_id=? AND operation_kind='create' "
+                f"AND verification_status='verified' ORDER BY timestamp {direction},event_id {direction} LIMIT 1",
+                _scope(scope)).fetchone()
+        if row is None:
+            return None
+        return {"creation": dict(row), "entity": self.lookup(scope, row["entity_id"])}
+
     def apply_verified(self, scope, effect, verification, *, session_id, operation_id,
                        starting_directory="", effect_index=0, execution_status="unknown"):
         """Commit once after the caller durably recorded actual execution.

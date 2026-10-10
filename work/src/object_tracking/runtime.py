@@ -99,6 +99,38 @@ class ObjectTracker:
     def context(self):
         return self.store.latest_context(self.scope, max_chars=6000, limit=20)
 
+    def answer_recent_creation(self, request):
+        return self.answer_creation(request, order="latest")
+
+    def answer_first_creation(self, request):
+        return self.answer_creation(request, order="first")
+
+    def answer_creation(self, request, *, order="latest"):
+        """Answer from creation evidence, preserving focus and file contents."""
+        chinese = bool(re.search(r"[\u3400-\u9fff]", request))
+        record = self.store.creation(self.scope, order=order)
+        first = order == "first"
+        description = "最先" if first else "刚才"
+        if record is None:
+            return (f"当前项目没有已验证的文件创建记录，无法确定你{description}创建了哪个文件。"
+                    if chinese else
+                    "I have no verified file creation record in this project, so I cannot identify "
+                    + ("the first file you created." if first else "the file you just created."))
+        created_path = record["creation"]["new_path"]
+        entity = record["entity"]
+        if entity is None or entity["status"] != "active":
+            return (f"{'最早' if first else '最近'}一次已验证的创建记录是 {created_path}，但该文件已丢失或发生外部变化，"
+                    "目前无法验证它的位置。" if chinese else
+                    f"The {'first' if first else 'last'} verified creation was {created_path}, but the file is now missing "
+                    "or changed outside Samantha; its current location cannot be verified.")
+        current_path = entity["current_path"]
+        if os.path.normcase(created_path) != os.path.normcase(current_path):
+            return (f"你{description}创建了 {created_path}；它后来被重命名为 {current_path}。" if chinese else
+                    (f"The first file you created was {created_path}; it was later renamed to {current_path}."
+                     if first else f"You created {created_path}; it was later renamed to {current_path}."))
+        return (f"你{description}创建了 {current_path}。" if chinese else
+                (f"The first file you created is {current_path}." if first else f"You just created {current_path}."))
+
     def clear_focus(self, context):
         evidence = json.loads(context) if context else {}
         focused = next((item for item in evidence.get("candidates", [])

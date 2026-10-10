@@ -185,7 +185,8 @@ class Chat:
         return SimpleNamespace(choices=[SimpleNamespace(
             finish_reason="length" if data.get("done_reason") == "length" else "stop",
             message=SimpleNamespace(content=data.get("message", {}).get("content")),
-        )])
+        )], usage=SimpleNamespace(prompt_tokens=data.get("prompt_eval_count"),
+                                 completion_tokens=data.get("eval_count")))
 
 
     def get_messages(self):

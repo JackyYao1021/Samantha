@@ -12,6 +12,8 @@ from langgraph.types import Command
 from model_output import parse_commands  # Keep the previous import location available.
 from interaction_log import InteractionJournal, InteractionLogError, record_operation
 from workflow import build_workflow, initial_state
+from agent_memory import MemoryScope, create_backend
+from agent_memory.journal import journal_session
 
 
 PROGRESS = {
@@ -31,20 +33,41 @@ def write_current_dir(current_dir, path=None):
 
 
 def process(initial_input, terminal_history=None, *, services=None, input_fn=None,
-            output_fn=None, state_file=None, log_file=None):
+            output_fn=None, state_file=None, log_file=None, memory=None, memory_scope=None,
+            memory_budget=6000, memory_limit=5):
     """Persist every turn and operation while driving terminal interrupts."""
     with InteractionJournal(log_file) as journal:
         with journal.start_session(initial_input, metadata={
             "terminal_history": list(terminal_history or []),
+            **({"memory": memory.describe(), "memory_scope": {
+                "user_id": memory_scope.user_id, "project_id": memory_scope.project_id,
+            }} if memory is not None and memory_scope is not None else {}),
         }) as session:
             state = _process(initial_input, terminal_history, services=services, input_fn=input_fn,
-                             output_fn=output_fn, state_file=state_file, session=session)
+                             output_fn=output_fn, state_file=state_file, session=session,
+                             memory=memory, memory_scope=memory_scope,
+                             memory_budget=memory_budget, memory_limit=memory_limit)
             session.finish(state["status"], error=state["error"], details={"state": state})
             state["log_session_id"] = session.session_id
+            if memory is not None:
+                try:
+                    evidence = journal_session(journal.read_session(session.session_id), memory_scope)
+                    record_operation("memory.ingest", memory.ingest, evidence)
+                except InteractionLogError:
+                    raise
+                except Exception as exc:
+                    # Execution already finished. Report failed memory construction
+                    # separately; never relabel or replay a completed shell task.
+                    state["memory_error"] = str(exc)
+                    session.record("memory_error", {"error": str(exc)})
+                    message = f"Task finished, but memory could not be saved: {exc}"
+                    session.output(message + "\n")
+                    (output_fn or print)(message)
             return state
 
 
-def _process(initial_input, terminal_history, *, services, input_fn, output_fn, state_file, session):
+def _process(initial_input, terminal_history, *, services, input_fn, output_fn, state_file, session,
+             memory=None, memory_scope=None, memory_budget=6000, memory_limit=5):
     input_fn = input_fn or input
     terminal_output = output_fn or print
 
@@ -61,7 +84,8 @@ def _process(initial_input, terminal_history, *, services, input_fn, output_fn, 
     state = initial_state(initial_input, terminal_history)
     # Initialize the per-call output before any model call or user cancellation.
     record_operation("terminal.write_current_dir", write_current_dir, state["initial_dir"], state_file)
-    graph = build_workflow(services)
+    graph = build_workflow(services, memory=memory, memory_scope=memory_scope,
+                           memory_budget=memory_budget, memory_limit=memory_limit)
     config = {
         "configurable": {"thread_id": session.session_id},
         "recursion_limit": 100,
@@ -130,6 +154,10 @@ def main():
         from content_cli import main as content_main
         write_current_dir(os.getcwd())
         return content_main(sys.argv[2:])
+    if len(sys.argv) > 1 and sys.argv[1] == "memory-eval":
+        from memory_eval import main as memory_eval_main
+        write_current_dir(os.getcwd())
+        return memory_eval_main(sys.argv[2:])
     user_command = " ".join(sys.argv[1:])
     if not user_command.strip():
         write_current_dir(os.getcwd())
@@ -146,7 +174,20 @@ def main():
             return 1
         return 2
     try:
-        state = process(user_command)
+        backend_name = os.environ.get("SAMANTHA_MEMORY_BACKEND", "none")
+        if backend_name == "none":
+            state = process(user_command)
+        else:
+            memory = create_backend(backend_name, path=os.environ.get("SAMANTHA_MEMORY_PATH") or
+                                    Path(__file__).resolve().parents[1] / ".samantha" / "memory.sqlite3")
+            try:
+                state = process(user_command, memory=memory, memory_scope=MemoryScope(
+                    os.environ.get("SAMANTHA_MEMORY_USER", "local"),
+                    os.environ.get("SAMANTHA_MEMORY_PROJECT", str(Path.cwd().resolve()))),
+                    memory_budget=int(os.environ.get("SAMANTHA_MEMORY_BUDGET", "6000")),
+                    memory_limit=int(os.environ.get("SAMANTHA_MEMORY_LIMIT", "5")))
+            finally:
+                memory.close()
     except Exception as exc:
         print(f"Unable to start Samantha: {exc}", file=sys.stderr)
         return 1

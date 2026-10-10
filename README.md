@@ -111,8 +111,12 @@ model, and completion status. Model thinking settings are unchanged.
 Use `samantha history list`, `samantha history show latest`, or
 `samantha history export latest --output session.json`. See
 [the interaction logging guide](readme_help/interaction_logging.md) for storage,
-event format, exports, and verification. Organizational intelligence and
-automatic recall of prior conversations remain future work.
+event format, exports, and verification. The memory experiment branch adds
+opt-in cross-invocation raw-history recall (`none`, `recent`, `bm25`) behind a
+replaceable adapter, a LongMemEval runner, and interactive terminal memory tasks.
+See [memory experiments](readme_help/memory_experiments.md) for the evaluation
+protocol and extension boundary. Structured organizational intelligence remains
+future work.
 
 ### File and Image Content Search
 
@@ -133,7 +137,7 @@ The following extensions are planned:
 ![Future Architecture](readme_help/Group_12.png)
 *Figure：Architecture for the future development*
 
-- **Persistent checkpoints and memory:** Durable interaction, execution, and error logs are implemented. The graph still keeps checkpoints in memory for one process; cross-process workflow resume and automatic conversation recall remain future work.
+- **Persistent checkpoints and memory:** Durable interaction logs and opt-in raw-history memory baselines are implemented. The graph still keeps checkpoints in memory for one process; cross-process workflow resume, extracted facts, and learned memory policies remain future work.
 - **Vector database:** Qdrant-backed content search is implemented. Automated deletion/move synchronization and visual-similarity embeddings are future extensions.
 - **External tools:** LangGraph orchestration is implemented. Additional tools beyond the Bash executor can be introduced through dedicated nodes.
 

@@ -5,6 +5,7 @@ restarts its node, so that node must not call a model or execute commands.
 """
 
 import os
+from datetime import datetime, timezone
 from dataclasses import dataclass
 from typing import Callable, Literal, TypedDict
 
@@ -21,6 +22,7 @@ from command_review import (
     CommandReview, ReviewRequest, command_action_id, format_review, validate_review,
 )
 from interaction_log import InteractionLogError, record_operation
+from agent_memory import MemoryBackend, MemoryQuery, MemoryScope, pack_hits, with_memory
 
 
 class ExecutionResult(TypedDict):
@@ -54,6 +56,8 @@ class SamanthaState(TypedDict):
     result: ExecutionResult | None
     error: str
     status: Literal["running", "succeeded", "failed", "cancelled"]
+    memory_context: str
+    memory_sources: list[dict]
 
 
 @dataclass(frozen=True)
@@ -120,6 +124,8 @@ def initial_state(user_input: str, terminal_history=None, max_retries: int = 3,
         "result": None,
         "error": "",
         "status": "running",
+        "memory_context": "",
+        "memory_sources": [],
     }
 
 
@@ -136,14 +142,32 @@ def _require_text(text: str) -> str:
     return text
 
 
-def build_workflow(services: WorkflowServices | None = None, checkpointer=None):
+def build_workflow(services: WorkflowServices | None = None, checkpointer=None, *,
+                   memory: MemoryBackend | None = None, memory_scope: MemoryScope | None = None,
+                   memory_budget: int = 6000, memory_limit: int = 5):
     services = services or default_services()
+    if memory is not None and memory_scope is None:
+        raise ValueError("A memory scope is required when enabling memory.")
+
+    def contextual_input(state, text):
+        return with_memory(text, state.get("memory_context", ""))
+
+    def retrieve_memory(state: SamanthaState):
+        try:
+            query = MemoryQuery(memory_scope, state["user_input"],
+                                datetime.now(timezone.utc).isoformat(), memory_limit, memory_budget)
+            hits = record_operation("memory.retrieve", memory.retrieve, query)
+            context, sources = pack_hits(hits, query)
+            return {"memory_context": context, "memory_sources": sources}
+        except Exception as exc:
+            return _failure("Memory retrieval failed", exc)
 
     def clarify(state: SamanthaState):
         try:
             prompt = build_clarification_input(
                 state["user_input"], state["question"], state["user_turn"],
                 state["clarification_answers"])
+            prompt = contextual_input(state, prompt)
             response = record_operation("agent.clarify", services.clarify,
                                         prompt, state["clarification_history"])
             if response.get("cancelled"):
@@ -195,14 +219,15 @@ def build_workflow(services: WorkflowServices | None = None, checkpointer=None):
     def parse_intent(state: SamanthaState):
         try:
             return {"intent": _require_text(record_operation(
-                "agent.parse_intent", services.parse_intent, state["clarified_request"]))}
+                "agent.parse_intent", services.parse_intent,
+                contextual_input(state, state["clarified_request"])))}
         except Exception as exc:
             return _failure("Intent parsing failed", exc)
 
     def generate_commands(state: SamanthaState):
         try:
             commands, explanation = parse_commands(record_operation(
-                "agent.generate_commands", services.generate_commands, state["intent"]))
+                "agent.generate_commands", services.generate_commands, contextual_input(state, state["intent"])))
             return {
                 "commands": commands,
                 "explanation": explanation,
@@ -225,6 +250,8 @@ def build_workflow(services: WorkflowServices | None = None, checkpointer=None):
                 "cwd": state["initial_dir"], "shell": shell,
                 "previous_error": state["error"],
             }
+            if state.get("memory_context"):
+                request["memory_context"] = state["memory_context"]
             review = validate_review(record_operation(
                 "agent.review_commands", services.review_commands, request))
             return {
@@ -294,7 +321,8 @@ def build_workflow(services: WorkflowServices | None = None, checkpointer=None):
     def correct_error(state: SamanthaState):
         try:
             intent = record_operation("agent.correct_error", services.correct_error,
-                state["clarified_request"], state["commands"], state["error"]
+                contextual_input(state, state["clarified_request"]),
+                state["commands"], state["error"]
             )
             return {"intent": _require_text(intent), "retries": state["retries"] + 1}
         except Exception as exc:
@@ -316,7 +344,12 @@ def build_workflow(services: WorkflowServices | None = None, checkpointer=None):
     }.items():
         builder.add_node(name, node)
 
-    builder.add_edge(START, "clarify")
+    if memory is not None:
+        builder.add_node("retrieve_memory", retrieve_memory)
+        builder.add_edge(START, "retrieve_memory")
+        builder.add_conditional_edges("retrieve_memory", continue_to("clarify"), ["clarify", END])
+    else:
+        builder.add_edge(START, "clarify")
     builder.add_conditional_edges("clarify", route_clarification, ["ask_clarification", "parse_intent", END])
     for source, target in [
         ("ask_clarification", "clarify"),

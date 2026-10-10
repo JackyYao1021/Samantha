@@ -4,6 +4,7 @@ import hashlib
 import json
 import re
 from typing import Literal, TypedDict
+from typing_extensions import NotRequired
 
 from chat import Chat
 from model_output import parse_json_object
@@ -17,6 +18,7 @@ class ReviewRequest(TypedDict):
     cwd: str
     shell: str
     previous_error: str
+    memory_context: NotRequired[str]
 
 
 class CommandReview(TypedDict):

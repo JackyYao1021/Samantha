@@ -54,6 +54,51 @@ python3 -c 'from pathlib import Path; assert Path("todo.txt").read_bytes() == b"
 
 如果模型生成了不符合 P0 格式的回答，工作流会在执行前停止；如果明确返回 `Effects: []`，命令仍走原有审批流程，但该次操作不建立对象追踪证据。以上示例是人工验收步骤，尚不代表真实模型已稳定通过三轮场景。
 
+## 查看全部持久化对象
+
+在已配置 `samantha` 的终端中运行：
+
+```bash
+samantha entities
+samantha entities --json
+samantha entities --user local --project samantha-p0-demo --status active
+```
+
+默认列出所选数据库中的全部用户、项目及状态，没有候选数量或上下文字符预算限制。
+`--user`、`--project`、`--status` 可以分别使用或组合使用；范围筛选需要显式指定，
+不会自动套用 `SAMANTHA_OBJECT_USER` 或 `SAMANTHA_OBJECT_PROJECT`。
+查询不要求启用 `SAMANTHA_OBJECT_TRACKING`，也不要求模型服务运行。
+
+数据库路径依次采用 `--db-path`、`SAMANTHA_OBJECT_PATH`、仓库的
+`work/.samantha/objects.sqlite3`。Docker 中默认路径为 `/work/.samantha/objects.sqlite3`。
+如果使用之前的独立测试库，在容器内明确指定实际路径，例如：
+
+```bash
+samantha entities --db-path /work/.test-results/p0-manual.uk3kRn/objects.sqlite3
+samantha entities --db-path /work/.test-results/p0-manual.uk3kRn/objects.sqlite3 --json
+```
+
+文本输出包含数据库路径、匹配数量、用户、项目、完整对象 ID、状态、版本、关注标记
+及当前路径。JSON 输出包含 `database`、`database_exists`、`filters`、`count` 和
+`entities`；对象中还包含指纹、创建／更新时间、来源会话／操作 ID 和失效原因。
+`is_focus` 表示该范围内数据库保存的关注标记；关注为空不代表对象记录被删除。
+
+| `status` | 保存的含义 |
+| --- | --- |
+| `active` | 最近检查时有效 |
+| `stale` | 已检测到外部变化，旧对象证据不能继续用于引用 |
+| `tombstone` | 检查时文件已不存在，保留历史对象记录 |
+
+命令使用 SQLite 只读连接，不重新检查文件、不更新对象状态、不修改关注标记，
+也不建立交互日志会话。因此查询不会改变 `history ... latest` 指向的会话。
+文件被外部改动后，数据库里的状态可能暂未刷新；此命令展示持久化快照，
+实际文件的可用性仍由工作流的验证检查判断。
+数据库不存在时显示空结果且不会创建数据库；路径错误、数据库损坏或不兼容时返回失败。
+
+`state["tracked_entities"]` 继续表示本次请求成功提交的对象，不是全量对象列表；
+`state["object_context"]` 是请求开始时的有界上下文快照。
+要判断全部持久化对象，使用 `samantha entities`。
+
 ## Python 接口
 
 `work/src` 可导入时，可以向原有 `process` 注入对象存储和范围：
@@ -222,6 +267,7 @@ python3 work/tests/object_tracking_probe.py --base-url http://127.0.0.1:11434/v1
 | `work/src/object_tracking/runtime.py` | 上下文、对象引用检查、审批快照及执行证据提交协调 |
 | `work/src/workflow.py` | 显式启用的图接入、审查/审批绑定、执行后验证及失败处理 |
 | `work/src/samantha.py` | `process` 参数、CLI 环境配置及独立日志会话 |
+| `work/src/entities_cli.py` | 只读列出全部持久化对象，支持范围／状态筛选及 JSON 输出 |
 | `work/src/n2c.py` | 仅在启用时扩展命令生成 JSON schema |
 | `work/src/intent_explain.py`、`work/src/chat.py` | 启用时要求严格且非空的意图 `text` 字段 |
 | `work/tests/object_tracking_probe.py` | 拒绝执行的真实模型提议/指代诊断及独立 fixture 证据 |

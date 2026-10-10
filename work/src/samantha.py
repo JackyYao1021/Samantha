@@ -176,6 +176,10 @@ def main():
         from history_cli import main as history_main
         write_current_dir(os.getcwd())
         return history_main(sys.argv[2:])
+    if len(sys.argv) > 1 and sys.argv[1] == "entities":
+        from entities_cli import main as entities_main
+        write_current_dir(os.getcwd())
+        return entities_main(sys.argv[2:])
     if len(sys.argv) > 1 and sys.argv[1] == "content":
         from content_cli import main as content_main
         write_current_dir(os.getcwd())
@@ -188,7 +192,7 @@ def main():
     if not user_command.strip():
         write_current_dir(os.getcwd())
         message = ("Error: empty command provided.\n"
-                   "Usage: samantha <command> | content ... | history ...\n"
+                   "Usage: samantha <command> | content ... | history ... | entities ...\n"
                    "Example: samantha create a file named test.txt")
         try:
             with InteractionJournal() as journal, journal.start_session(user_command, kind="usage") as session:

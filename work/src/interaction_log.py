@@ -241,6 +241,15 @@ def operation(name, arguments):
         _active_operation.reset(token)
 
 
+def current_operation_reference():
+    """Return provenance for the active operation without exposing mutable context."""
+    session = _active_session.get()
+    active = _active_operation.get()
+    if session is None or active is None:
+        raise InteractionLogError("Object tracking requires an active, journaled operation.")
+    return {"session_id": session.session_id, "operation_id": active["operation_id"]}
+
+
 def record_model_reasoning(data):
     """Attach provider-returned reasoning to the active agent/tool operation."""
     session = _active_session.get()

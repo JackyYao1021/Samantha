@@ -118,6 +118,13 @@ See [memory experiments](readme_help/memory_experiments.md) for the evaluation
 protocol and extension boundary. Structured organizational intelligence remains
 future work.
 
+Opt-in P0 file object tracking now persists verified create, rename, and append
+evidence across CLI calls, with a stable user/project scope and fresh approval
+for every action.
+See [object tracking](readme_help/object_tracking.md) for setup,
+strict command contracts, failure behavior, offline cross-process tests, and the
+real-model proposal probe. Live model task success remains to be validated.
+
 ### File and Image Content Search
 
 The content pipeline now supports native text, DOCX, PDF pages, and images:

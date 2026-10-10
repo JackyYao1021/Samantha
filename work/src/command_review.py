@@ -19,6 +19,8 @@ class ReviewRequest(TypedDict):
     shell: str
     previous_error: str
     memory_context: NotRequired[str]
+    object_context: NotRequired[str]
+    expected_effects: NotRequired[list[dict]]
 
 
 class CommandReview(TypedDict):

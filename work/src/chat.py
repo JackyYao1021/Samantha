@@ -193,15 +193,21 @@ class Chat:
         return self.messages
 
 
-def request_text(begin_messages, prompt, *, max_tokens=4096):
+def request_text(begin_messages, prompt, *, max_tokens=4096, strict_schema=False):
     """Use a JSON envelope for text agents, then preserve their text interface."""
     instructions = (
         '\nReturn one JSON object with exactly one field "text". '
         'Put the requested final response, including its Markdown formatting, '
         'in the "text" string. Do not include analysis or thinking.'
     )
+    response_format = ({"type": "json_schema", "json_schema": {
+        "name": "text_response", "strict": True, "schema": {
+            "type": "object", "properties": {"text": {"type": "string", "minLength": 1}},
+            "required": ["text"], "additionalProperties": False,
+        },
+    }} if strict_schema else {"type": "json_object"})
     chat = Chat(begin_messages=begin_messages + instructions, max_tokens=max_tokens,
-                response_format={"type": "json_object"})
+                response_format=response_format)
     data = parse_json_object(chat.chat_context(prompt))
     text = data.get("text")
     if not isinstance(text, str) or not text.strip():

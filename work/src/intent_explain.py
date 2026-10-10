@@ -11,7 +11,7 @@ def get_current_path():
 def get_current_time():
     return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
-def parse_user_intent(user_input):
+def parse_user_intent(user_input, *, object_tracking=False):
     """
     Intent Parsing Agent  
     Purpose: Organize the user's request into a relatively structured form  
@@ -77,6 +77,15 @@ def parse_user_intent(user_input):
         - Current Time: {current_time}
 
     """
+    if object_tracking:
+        begin_messages += (
+            "\nFor one file creation, rename, or append, describe one operation with exact paths "
+            "and exact requested UTF-8 content/newlines. Use the supplied verified current file "
+            "object to resolve references. Preserve the user's explicit targets and constraints. "
+            "Do not add directory changes, directory preparation, or extra operations unless "
+            "the user requested them. Put the complete natural-language plan in the text field."
+        )
+        return request_text(begin_messages, user_input, strict_schema=True)
     return request_text(begin_messages, user_input)
 
 if __name__ == "__main__":

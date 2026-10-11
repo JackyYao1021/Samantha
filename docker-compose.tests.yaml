@@ -22,6 +22,33 @@ x-task-container: &task-container
     - task_results:/test-results
 
 services:
+  eval-sandbox:
+    image: samantha-eval-sandbox:latest
+    build:
+      context: .
+      target: evalsandbox
+      args:
+        CONTENT_HYBRID: "false"
+        OPENEULER_REPO_URL: ${OPENEULER_REPO_URL:-https://repo.openeuler.org}
+    profiles: [eval-sandbox]
+    user: "10001:10001"
+    init: true
+    read_only: true
+    network_mode: none
+    ipc: none
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    pids_limit: 64
+    cpus: 1
+    mem_limit: 256m
+    stdin_open: true
+    tmpfs:
+      - /fixture:rw,nosuid,nodev,noexec,size=16m,uid=10001,gid=10001,mode=0700
+    environment:
+      SAMANTHA_EVAL_CONTAINER: "1"
+      SAMANTHA_AZURE_FALLBACK: "false"
+      SAMANTHA_LOG_REASONING: "false"
+
   tests:
     <<: *task-container
     profiles: [tests]

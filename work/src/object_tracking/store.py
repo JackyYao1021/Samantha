@@ -210,7 +210,10 @@ class ObjectStore:
         with self._lock:
             rows = self.connection.execute(
                 "SELECT * FROM object_entities WHERE user_id=? AND project_id=? AND status='active' "
-                "ORDER BY updated_at DESC,entity_id LIMIT ?", (*_scope(scope), limit)).fetchall()
+                "ORDER BY (SELECT MAX(e.rowid) FROM object_events AS e "
+                "WHERE e.user_id=object_entities.user_id AND e.project_id=object_entities.project_id "
+                "AND e.entity_id=object_entities.entity_id) DESC,object_entities.rowid DESC LIMIT ?",
+                (*_scope(scope), limit)).fetchall()
         records = []
         for row in rows:
             entity = self._entity(row)
@@ -266,7 +269,10 @@ class ObjectStore:
             row = self.connection.execute(
                 "SELECT entity_id,new_path,session_id,operation_id,timestamp FROM object_events "
                 "WHERE user_id=? AND project_id=? AND operation_kind='create' "
-                f"AND verification_status='verified' ORDER BY timestamp {direction},event_id {direction} LIMIT 1",
+                # The append-only ledger's SQLite rowid is the committed order,
+                # including schema-v1 history. Wall clocks can tie or move back;
+                # UUIDs and provenance hashes do not encode execution order.
+                f"AND verification_status='verified' ORDER BY rowid {direction} LIMIT 1",
                 _scope(scope)).fetchone()
         if row is None:
             return None
@@ -373,5 +379,5 @@ class ObjectStore:
             sql += " AND entity_id=?"
             parameters += (entity_id,)
         with self._lock:
-            rows = self.connection.execute(sql + " ORDER BY timestamp,event_id", parameters).fetchall()
+            rows = self.connection.execute(sql + " ORDER BY rowid", parameters).fetchall()
         return [{**dict(row), "evidence": json.loads(row["evidence"])} for row in rows]

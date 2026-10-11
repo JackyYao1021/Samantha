@@ -4,6 +4,7 @@ import json
 import os
 from pathlib import Path
 import shutil
+import subprocess
 import sys
 import tempfile
 from types import SimpleNamespace
@@ -103,6 +104,77 @@ class ObjectStoreTests(unittest.TestCase):
         self.assertIsNone(self.store.lookup_path(MemoryScope("other", "project-a"), first["current_path"]))
         Path(first["current_path"]).unlink()
         self.assertEqual(self.store.lookup_path(SCOPE, first["current_path"])["status"], "tombstone")
+
+    def test_equal_clocks_use_commit_order_for_creation_events_and_candidates(self):
+        with patch("object_tracking.store._now", return_value="2026-10-11T00:00:00Z"), \
+                patch("object_tracking.store.uuid.uuid4", side_effect=[
+                    SimpleNamespace(hex="0" * 32), SimpleNamespace(hex="f" * 32)]):
+            first = self.create("first.txt")
+            second = self.create("second.txt")
+        self.assertEqual(self.store.first_creation(SCOPE)["entity"]["entity_id"], first["entity_id"])
+        self.assertEqual(self.store.latest_creation(SCOPE)["entity"]["entity_id"], second["entity_id"])
+        self.assertEqual([item["entity_id"] for item in self.store.candidates(SCOPE)],
+                         [second["entity_id"], first["entity_id"]])
+        self.assertEqual([item["entity_id"] for item in self.store.events(SCOPE)],
+                         [first["entity_id"], second["entity_id"]])
+        Path(first["current_path"]).unlink()
+        self.assertEqual(self.store.first_creation(SCOPE)["entity"]["status"], "tombstone")
+        self.assertEqual(self.store.latest_creation(SCOPE)["entity"]["entity_id"], second["entity_id"])
+        self.assertIsNone(self.store.latest_creation(MemoryScope("other", "project-a")))
+
+    def test_clock_rollback_and_updates_cannot_reorder_the_ledger(self):
+        with patch("object_tracking.store._now", return_value="2026-10-11T00:00:02Z"):
+            first = self.create("first.txt")
+        with patch("object_tracking.store._now", return_value="2026-10-11T00:00:01Z"):
+            second = self.create("second.txt")
+        proposal = effect("append", Path(first["current_path"]), content="tail", entity=first)
+        before = capture_before(proposal, entity=first)
+        with Path(first["current_path"]).open("ab") as stream:
+            stream.write(b"tail")
+        with patch("object_tracking.store._now", return_value="2026-10-11T00:00:00Z"):
+            updated = self.commit(proposal, before)
+        self.assertEqual(self.store.candidates(SCOPE)[0]["entity_id"], first["entity_id"])
+        self.assertEqual(self.store.latest_creation(SCOPE)["entity"]["entity_id"], second["entity_id"])
+        self.assertEqual([item["operation_kind"] for item in self.store.events(SCOPE)],
+                         ["create", "create", "append"])
+        replay = self.store.apply_verified(SCOPE, proposal, verify_after(proposal, before),
+            session_id="session-3", operation_id="operation-3", execution_status="succeeded")
+        self.assertEqual(replay["version"], updated["version"])
+        self.assertEqual(len(self.store.events(SCOPE)), 3)
+
+    def test_schema_v1_commit_order_survives_independent_processes(self):
+        script = '''
+import sys
+from pathlib import Path
+sys.path.insert(0, sys.argv[1])
+from agent_memory import MemoryScope
+from object_tracking import ObjectStore, capture_before, verify_after
+import object_tracking.store as module
+module._now = lambda: sys.argv[5]
+path = Path(sys.argv[3])
+effect = {"kind":"create", "path":str(path), "content":"child", "destination":None,
+          "entity_id":None, "entity_version":None}
+before = capture_before(effect)
+path.write_bytes(b"child")
+with ObjectStore(sys.argv[2]) as store:
+    store.apply_verified(MemoryScope("user-a","project-a"), effect, verify_after(effect,before),
+                         session_id=sys.argv[4], operation_id=sys.argv[4])
+'''
+        for label, timestamp in (("first", "2026-10-11T00:00:02Z"),
+                                  ("second", "2026-10-11T00:00:02Z"),
+                                  ("third", "2026-10-11T00:00:01Z")):
+            subprocess.run([sys.executable, "-c", script, str(SRC), str(self.database),
+                            str(self.root / (label + ".txt")), label, timestamp],
+                           check=True, capture_output=True, timeout=30)
+        self.store.close()
+        with ObjectStore(self.database) as reopened:
+            self.assertEqual(reopened.connection.execute("PRAGMA user_version").fetchone()[0], 1)
+            self.assertEqual([row["operation_id"] for row in reopened.events(SCOPE)],
+                             ["first", "second", "third"])
+            self.assertEqual(reopened.first_creation(SCOPE)["creation"]["operation_id"], "first")
+            self.assertEqual(reopened.latest_creation(SCOPE)["creation"]["operation_id"], "third")
+            self.assertEqual([Path(row["current_path"]).name for row in reopened.candidates(SCOPE)],
+                             ["third.txt", "second.txt", "first.txt"])
 
     def test_clear_focus_preserves_verified_candidates_and_is_scoped(self):
         first = self.create()

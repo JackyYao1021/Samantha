@@ -1,0 +1,40 @@
+name: Offline evaluation
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  offline:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+          cache-dependency-path: work/requirements.txt
+      - name: Install pinned dependencies during setup
+        run: python -m pip install -r work/requirements.txt
+      - name: Run discovered offline tests without network or credentials
+        shell: bash
+        run: |
+          set -euo pipefail
+          offline_python="$(command -v python)"
+          mkdir -p "$RUNNER_TEMP/offline-home"
+          # Only work/tests/test_*.py is discovered. work/test.py has a top-level
+          # Azure call and must never be imported by this job.
+          # Package installation is complete; the test process has no network.
+          sudo unshare --net -- env -i \
+            PATH="$PATH" HOME="$RUNNER_TEMP/offline-home" \
+            PYTHONUTF8=1 PYTHONDONTWRITEBYTECODE=1 \
+            SAMANTHA_AZURE_FALLBACK=false SAMANTHA_LOG_REASONING=false \
+            SAMANTHA_MEMORY_BACKEND=none SAMANTHA_OBJECT_TRACKING=false \
+            QWEN_BASE_URL=http://127.0.0.1:9/v1 QWEN_API_KEY=offline-fixture \
+            CONTENT_OLLAMA_URL=http://127.0.0.1:9 \
+            "$offline_python" -m unittest discover -s work/tests -p 'test_*.py' -q

@@ -25,7 +25,10 @@ execution connects to `127.0.0.1:11434`; Docker Compose connects to
 
 ### 2. 🏗️ System Architecture
 
-Our system follows a multi-agent architecture that processes user natural language requests step by step until successful execution. The workflow ensures clarity, safety, and self-correction throughout the process.
+Our system uses a fixed workflow with separate LLM roles for clarification,
+intent parsing, command generation, review, and bounded correction. Conditional
+routing and human approval govern execution; this does not imply open-ended
+autonomous planning or dynamic tool selection.
 
 The workflow is now orchestrated by **LangGraph**. `work/src/workflow.py` defines
 typed state, conditional routing, clarification/approval interrupts, and the
@@ -38,6 +41,18 @@ It includes 25 Chinese tasks with isolated fixtures, expected outcomes,
 interaction requirements, and checks against exported execution logs.
 The dedicated `docker-compose.tests.yaml` provides offline checks and an
 interactive real-task lab; Windows can use `work/tests/docker_real_tasks.ps1`.
+
+The [evaluation pipeline](readme_help/evaluation_system.md) preserves the P0
+contracts, frozen artifacts, file outcome checks, offline regrading, and physical
+model-call telemetry. P1 adds linked events, versioned prompts, recursive privacy
+filtering, optional Langfuse export, and network-isolated CI. P2/P3 add bounded
+fault fixtures, saved-trajectory recovery analysis, evidence/QA/OCR rules,
+human judge-calibration imports, paired episode statistics, an optional Inspect
+adapter, and a focused partial-effect recovery study. Default runs use Fake
+Services; local model proposal checks require an explicit option and deny command
+execution. Offline validation, actual model evidence, and pending external-service
+or human validation are documented separately. These checks do not establish
+arbitrary Bash sandboxing or real-model end-to-end task accuracy.
 
 ![Overall system design](readme_help/Group_10.png)
 

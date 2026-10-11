@@ -12,8 +12,11 @@ import json
 import os
 from pathlib import Path
 import sqlite3
+import sys
 import time
 import uuid
+
+from observability.events import current_trace, emit_event, trace_context
 
 
 DEFAULT_LOG_PATH = Path(__file__).resolve().parents[1] / ".samantha" / "interactions.sqlite3"
@@ -116,6 +119,8 @@ class InteractionJournal:
             raise
 
     def _append(self, session_id, turn, kind, role, data):
+        data = {**data, "trace": current_trace(session_id=session_id,
+                                             trace_id=current_trace()["trace_id"] or session_id)}
         sequence = self.connection.execute(
             "SELECT COALESCE(MAX(sequence), 0) + 1 FROM events WHERE session_id=?", (session_id,)
         ).fetchone()[0]
@@ -134,6 +139,9 @@ class InteractionJournal:
             )
             self._append(session_id, 1, "session_started", "system", {"cwd": cwd, **(metadata or {})})
             self._append(session_id, 1, "user_input", "user", {"text": request, "source": "request"})
+        with trace_context(session_id=session_id, trace_id=current_trace()["trace_id"] or session_id):
+            emit_event("session_started", {"cwd": cwd, **(metadata or {})}, role="system")
+            emit_event("user_input", {"text": request, "source": "request"}, role="user")
         return LogSession(self, session_id)
 
     def list_sessions(self, limit=20):
@@ -174,6 +182,9 @@ class LogSession:
 
     def __enter__(self):
         self._token = _active_session.set(self)
+        self._trace_context = trace_context(session_id=self.session_id,
+                                           trace_id=current_trace()["trace_id"] or self.session_id)
+        self._trace_context.__enter__()
         return self
 
     def __exit__(self, exc_type, exc, traceback):
@@ -186,10 +197,12 @@ class LogSession:
                             details={"exception_type": exc_type.__name__ if exc_type else None})
         finally:
             _active_session.reset(self._token)
+            self._trace_context.__exit__(exc_type, exc, traceback)
 
     def record(self, kind, data, *, role="samantha"):
         with self.journal._transaction():
             self.journal._append(self.session_id, self.turn, kind, role, data)
+        emit_event(kind, data, role=role, trace=current_trace(session_id=self.session_id))
 
     def user_input(self, text, source):
         self.turn += 1
@@ -210,6 +223,8 @@ class LogSession:
                 (status, error, _timestamp(), self.session_id),
             )
         self.finished = True
+        emit_event("session_finished", {"status": status, "error": error, **(details or {})},
+                   role="system", trace=current_trace(session_id=self.session_id))
 
 
 @contextmanager
@@ -217,28 +232,43 @@ def operation(name, arguments):
     """Record an actual operation before it starts and its outcome afterwards."""
     session = _active_session.get()
     outcome = {}
-    if session is None:
-        yield outcome
-        return
+    record = session.record if session is not None else emit_event
     operation_id = uuid.uuid4().hex
-    session.record("operation_started", {"operation_id": operation_id, "name": name,
-                                         "arguments": arguments})
+    previous = current_trace()["operation_id"]
+    trace_scope = trace_context(operation_id=operation_id, parent_operation_id=previous)
+    trace_scope.__enter__()
+    try:
+        record("operation_started", {"operation_id": operation_id, "name": name,
+                                     "arguments": arguments})
+    except BaseException:
+        trace_scope.__exit__(*sys.exc_info())
+        raise
     started = time.monotonic()
     token = _active_operation.set({"operation_id": operation_id, "operation_name": name})
     try:
         yield outcome
     except BaseException as exc:
-        session.record("operation_finished", {"operation_id": operation_id, "name": name,
+        record("operation_finished", {"operation_id": operation_id, "name": name,
                        "status": "cancelled" if isinstance(exc, (EOFError, KeyboardInterrupt)) else "failed",
                        "error": str(exc), "exception_type": type(exc).__name__,
                        "duration_ms": round((time.monotonic() - started) * 1000, 3), **outcome})
         raise
     else:
-        session.record("operation_finished", {"operation_id": operation_id, "name": name,
+        record("operation_finished", {"operation_id": operation_id, "name": name,
                        "status": "completed", "duration_ms": round((time.monotonic() - started) * 1000, 3),
                        **outcome})
     finally:
         _active_operation.reset(token)
+        trace_scope.__exit__(None, None, None)
+
+
+def current_operation_reference():
+    """Return provenance for the active operation without exposing mutable context."""
+    session = _active_session.get()
+    active = _active_operation.get()
+    if session is None or active is None:
+        raise InteractionLogError("Object tracking requires an active, journaled operation.")
+    return {"session_id": session.session_id, "operation_id": active["operation_id"]}
 
 
 def record_model_reasoning(data):

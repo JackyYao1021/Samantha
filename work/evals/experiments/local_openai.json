@@ -1,0 +1,27 @@
+{
+  "budget": {
+    "max_calls": 40,
+    "max_calls_per_attempt": 4,
+    "max_seconds": 450
+  },
+  "max_attempts": 10,
+  "mode": "model_proposal",
+  "model": {
+    "max_output_tokens": 2048,
+    "model": "qwen3:4b",
+    "provider": "ollama",
+    "request_timeout_seconds": 20,
+    "transport": "openai"
+  },
+  "name": "local_proposal_openai",
+  "repeats": 1,
+  "runtime": {
+    "azure_fallback": false,
+    "memory": "none",
+    "object_tracking": false
+  },
+  "schema_version": "1.0",
+  "seed": 17,
+  "timeout_seconds": 90,
+  "variant": "faithful"
+}

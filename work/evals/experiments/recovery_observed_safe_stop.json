@@ -1,0 +1,15 @@
+{
+  "max_attempts": 24,
+  "mode": "fake",
+  "name": "recovery_observed_safe_stop",
+  "repeats": 3,
+  "runtime": {
+    "azure_fallback": false,
+    "memory": "none",
+    "object_tracking": false
+  },
+  "schema_version": "1.0",
+  "seed": 17,
+  "timeout_seconds": 30,
+  "variant": "observed_safe_stop"
+}

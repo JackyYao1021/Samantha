@@ -25,13 +25,34 @@ execution connects to `127.0.0.1:11434`; Docker Compose connects to
 
 ### 2. 🏗️ System Architecture
 
-Our system follows a multi-agent architecture that processes user natural language requests step by step until successful execution. The workflow ensures clarity, safety, and self-correction throughout the process.
+Our system uses a fixed workflow with separate LLM roles for clarification,
+intent parsing, command generation, review, and bounded correction. Conditional
+routing and human approval govern execution; this does not imply open-ended
+autonomous planning or dynamic tool selection.
 
 The workflow is now orchestrated by **LangGraph**. `work/src/workflow.py` defines
 typed state, conditional routing, clarification/approval interrupts, and the
 bounded correction loop. Existing agent prompts and the `samantha <request>`
 terminal entry point are retained. See [the LangGraph workflow guide](readme_help/langgraph_workflow.md)
 for the graph, state lifecycle, tests, and current limitations.
+
+For real-model acceptance testing, see [the real task evaluation guide](readme_help/real_task_evaluation.md).
+It includes 25 Chinese tasks with isolated fixtures, expected outcomes,
+interaction requirements, and checks against exported execution logs.
+The dedicated `docker-compose.tests.yaml` provides offline checks and an
+interactive real-task lab; Windows can use `work/tests/docker_real_tasks.ps1`.
+
+The [evaluation pipeline](readme_help/evaluation_system.md) preserves the P0
+contracts, frozen artifacts, file outcome checks, offline regrading, and physical
+model-call telemetry. P1 adds linked events, versioned prompts, recursive privacy
+filtering, optional Langfuse export, and network-isolated CI. P2/P3 add bounded
+fault fixtures, saved-trajectory recovery analysis, evidence/QA/OCR rules,
+human judge-calibration imports, paired episode statistics, an optional Inspect
+adapter, and a focused partial-effect recovery study. Default runs use Fake
+Services; local model proposal checks require an explicit option and deny command
+execution. Offline validation, actual model evidence, and pending external-service
+or human validation are documented separately. These checks do not establish
+arbitrary Bash sandboxing or real-model end-to-end task accuracy.
 
 ![Overall system design](readme_help/Group_10.png)
 
@@ -105,8 +126,21 @@ model, and completion status. Model thinking settings are unchanged.
 Use `samantha history list`, `samantha history show latest`, or
 `samantha history export latest --output session.json`. See
 [the interaction logging guide](readme_help/interaction_logging.md) for storage,
-event format, exports, and verification. Organizational intelligence and
-automatic recall of prior conversations remain future work.
+event format, exports, and verification. The memory experiment branch adds
+opt-in cross-invocation raw-history recall (`none`, `recent`, `bm25`) behind a
+replaceable adapter, a LongMemEval runner, and interactive terminal memory tasks.
+See [memory experiments](readme_help/memory_experiments.md) for the evaluation
+protocol and extension boundary. Structured organizational intelligence remains
+future work.
+
+Opt-in P0 file object tracking now persists verified create, rename, and append
+evidence across CLI calls, with a stable user/project scope and fresh approval
+for every action. Use `samantha entities` to inspect all saved objects, or
+`samantha entities --project my-project --status active --json` to filter them.
+The command reads the object database without model calls or file revalidation.
+See [object tracking](readme_help/object_tracking.md) for setup,
+strict command contracts, failure behavior, offline cross-process tests, and the
+real-model proposal probe. Live model task success remains to be validated.
 
 ### File and Image Content Search
 
@@ -127,7 +161,7 @@ The following extensions are planned:
 ![Future Architecture](readme_help/Group_12.png)
 *Figure：Architecture for the future development*
 
-- **Persistent checkpoints and memory:** Durable interaction, execution, and error logs are implemented. The graph still keeps checkpoints in memory for one process; cross-process workflow resume and automatic conversation recall remain future work.
+- **Persistent checkpoints and memory:** Durable interaction logs and opt-in raw-history memory baselines are implemented. The graph still keeps checkpoints in memory for one process; cross-process workflow resume, extracted facts, and learned memory policies remain future work.
 - **Vector database:** Qdrant-backed content search is implemented. Automated deletion/move synchronization and visual-similarity embeddings are future extensions.
 - **External tools:** LangGraph orchestration is implemented. Additional tools beyond the Bash executor can be introduced through dedicated nodes.
 

@@ -7,6 +7,9 @@ from openai import AzureOpenAI, OpenAI
 from model_output import parse_json_object
 from interaction_log import InteractionLogError
 from model_reasoning import log_message_reasoning, log_response_reasoning
+from model_telemetry import model_request
+from prompts.registry import bind_prompt, compose_prompt
+from model_budget import BudgetExceeded
 
 
 endpoint = "https://sencemaking.openai.azure.com/"
@@ -48,6 +51,7 @@ class Chat:
             api_version=os.environ.get("AZURE_OPENAI_API_VERSION", api_version),
             azure_endpoint=os.environ.get("AZURE_OPENAI_ENDPOINT", endpoint),
             api_key=subscription_key,
+            max_retries=0,
         ) if allow_azure_fallback and azure_fallback and subscription_key else None
         self.client_qwen = OpenAI(
             api_key=os.environ.get("QWEN_API_KEY", openai_api_key_qwen),
@@ -64,9 +68,21 @@ class Chat:
                 "content": begin_messages if begin_messages else "You are a helpful assistant.",
             }
         ]
+        self.prompt_templates = list(getattr(begin_messages, "prompt_metadata", []))
+        if not self.prompt_templates and not begin_messages:
+            self.prompt_templates = bind_prompt("chat.default", "You are a helpful assistant.").prompt_metadata
         self.model = os.environ.get("AZURE_OPENAI_DEPLOYMENT", deployment)
         self.model_qwen = os.environ.get("QWEN_MODEL", model_qwen)
         self.max_tokens = max_tokens
+        evaluation_cap = os.environ.get("QWEN_EVAL_MAX_TOKENS")
+        if evaluation_cap is not None:
+            try:
+                evaluation_cap = int(evaluation_cap)
+            except (TypeError, ValueError) as exc:
+                raise ValueError("QWEN_EVAL_MAX_TOKENS must be a positive integer") from exc
+            if evaluation_cap <= 0:
+                raise ValueError("QWEN_EVAL_MAX_TOKENS must be a positive integer")
+            self.max_tokens = min(max_tokens, evaluation_cap)
         self.temperature = temperature
         self.top_p = top_p
         self.response_format = response_format
@@ -121,15 +137,18 @@ class Chat:
             if self.api_mode == "ollama":
                 response = self._send_ollama(message)
             else:
-                response = self.client_qwen.chat.completions.create(
-                    messages=qwen_message,
-                    max_tokens=self.max_tokens,
-                    temperature=self.temperature,
-                    top_p=self.top_p,
-                    model=self.model_qwen,
-                    **qwen_options,
-                )
+                parameters = {"messages": qwen_message, "max_tokens": self.max_tokens,
+                              "temperature": self.temperature, "top_p": self.top_p,
+                              **qwen_options}
+                with model_request(provider="qwen", transport="openai", model=self.model_qwen,
+                                   parameters={**parameters, **qwen_options.get("extra_body", {})},
+                                   prompt_templates=self.prompt_templates) as call:
+                    response = self.client_qwen.chat.completions.create(
+                        model=self.model_qwen, **parameters)
+                    call["response"] = response
         except InteractionLogError:
+            raise
+        except BudgetExceeded:
             raise
         except Exception as e:
             if self.client is None:
@@ -140,14 +159,12 @@ class Chat:
                     "Check Ollama, QWEN_BASE_URL and QWEN_MODEL."
                 ) from e
             provider = "azure"
-            response = self.client.chat.completions.create(
-                messages=message,
-                max_tokens=self.max_tokens,
-                temperature=self.temperature,
-                top_p=self.top_p,
-                model=self.model,
-                **options,
-            )
+            parameters = {"messages": message, "max_tokens": self.max_tokens,
+                          "temperature": self.temperature, "top_p": self.top_p, **options}
+            with model_request(provider="azure", transport="openai", model=self.model,
+                               parameters=parameters, prompt_templates=self.prompt_templates) as call:
+                response = self.client.chat.completions.create(model=self.model, **parameters)
+                call["response"] = response
         if provider == "azure" or self.api_mode == "openai":
             log_response_reasoning(response, model=self.model if provider == "azure" else self.model_qwen,
                                    provider=provider)
@@ -173,9 +190,13 @@ class Chat:
                 raise ValueError("Ollama requires json_object or json_schema output.")
         with httpx.Client(timeout=float(os.environ.get("QWEN_TIMEOUT", "120")),
                           trust_env=False) as client:
-            response = client.post(root + "/api/chat", json=payload)
-            response.raise_for_status()
-            data = response.json()
+            with model_request(provider="qwen", transport="ollama", model=self.model_qwen,
+                               parameters={**payload, **payload["options"]},
+                               prompt_templates=self.prompt_templates) as call:
+                response = client.post(root + "/api/chat", json=payload)
+                response.raise_for_status()
+                data = response.json()
+                call["response"] = data
         log_message_reasoning(data.get("message", {}), model=self.model_qwen, provider="qwen",
                               transport="ollama", finish_reason=data.get("done_reason"),
                               response_complete=data.get("done") is True)
@@ -185,22 +206,29 @@ class Chat:
         return SimpleNamespace(choices=[SimpleNamespace(
             finish_reason="length" if data.get("done_reason") == "length" else "stop",
             message=SimpleNamespace(content=data.get("message", {}).get("content")),
-        )])
+        )], usage=SimpleNamespace(prompt_tokens=data.get("prompt_eval_count"),
+                                 completion_tokens=data.get("eval_count")))
 
 
     def get_messages(self):
         return self.messages
 
 
-def request_text(begin_messages, prompt, *, max_tokens=4096):
+def request_text(begin_messages, prompt, *, max_tokens=4096, strict_schema=False):
     """Use a JSON envelope for text agents, then preserve their text interface."""
     instructions = (
         '\nReturn one JSON object with exactly one field "text". '
         'Put the requested final response, including its Markdown formatting, '
         'in the "text" string. Do not include analysis or thinking.'
     )
-    chat = Chat(begin_messages=begin_messages + instructions, max_tokens=max_tokens,
-                response_format={"type": "json_object"})
+    response_format = ({"type": "json_schema", "json_schema": {
+        "name": "text_response", "strict": True, "schema": {
+            "type": "object", "properties": {"text": {"type": "string", "minLength": 1}},
+            "required": ["text"], "additionalProperties": False,
+        },
+    }} if strict_schema else {"type": "json_object"})
+    chat = Chat(begin_messages=compose_prompt(begin_messages, instructions), max_tokens=max_tokens,
+                response_format=response_format)
     data = parse_json_object(chat.chat_context(prompt))
     text = data.get("text")
     if not isinstance(text, str) or not text.strip():

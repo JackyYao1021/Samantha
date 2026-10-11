@@ -1,0 +1,95 @@
+name: samantha-tests
+
+x-task-container: &task-container
+  image: samantha-task-tests:latest
+  build:
+    context: .
+    target: task-tests
+    args:
+      CONTENT_HYBRID: ${CONTENT_HYBRID:-false}
+      OPENEULER_REPO_URL: ${OPENEULER_REPO_URL:-https://repo.openeuler.org}
+  user: "10001:10001"
+  init: true
+  read_only: true
+  cap_drop: [ALL]
+  security_opt: [no-new-privileges:true]
+  pids_limit: 128
+  cpus: 2
+  mem_limit: ${TASK_MEMORY_LIMIT:-2g}
+  tmpfs:
+    - /tmp:rw,nosuid,nodev,size=512m,mode=1777
+  volumes:
+    - task_results:/test-results
+
+services:
+  eval-sandbox:
+    image: samantha-eval-sandbox:latest
+    build:
+      context: .
+      target: evalsandbox
+      args:
+        CONTENT_HYBRID: "false"
+        OPENEULER_REPO_URL: ${OPENEULER_REPO_URL:-https://repo.openeuler.org}
+    profiles: [eval-sandbox]
+    user: "10001:10001"
+    init: true
+    read_only: true
+    network_mode: none
+    ipc: none
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    pids_limit: 64
+    cpus: 1
+    mem_limit: 256m
+    stdin_open: true
+    tmpfs:
+      - /fixture:rw,nosuid,nodev,noexec,size=16m,uid=10001,gid=10001,mode=0700
+    environment:
+      SAMANTHA_EVAL_CONTAINER: "1"
+      SAMANTHA_AZURE_FALLBACK: "false"
+      SAMANTHA_LOG_REASONING: "false"
+
+  tests:
+    <<: *task-container
+    profiles: [tests]
+    network_mode: none
+    command: [offline]
+    environment:
+      SAMANTHA_AZURE_FALLBACK: "false"
+      SAMANTHA_LOG_PATH: /tmp/offline-interactions.sqlite3
+      SAMANTHA_LOG_REASONING: "false"
+
+  task-lab:
+    <<: *task-container
+    profiles: [real-tasks]
+    command: [shell]
+    tty: true
+    stdin_open: true
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    environment:
+      # TASK_* avoids host-only 127.0.0.1 settings in the repository .env.
+      QWEN_BASE_URL: ${TASK_QWEN_BASE_URL:-http://host.docker.internal:11434/v1}
+      QWEN_MODEL: ${TASK_QWEN_MODEL:-qwen3:4b}
+      QWEN_API_MODE: ${TASK_QWEN_API_MODE:-ollama}
+      QWEN_API_KEY: ${TASK_QWEN_API_KEY:-ollama}
+      QWEN_REASONING_EFFORT: none
+      QWEN_TIMEOUT: ${TASK_QWEN_TIMEOUT:-120}
+      SAMANTHA_AZURE_FALLBACK: "false"
+      SAMANTHA_LOG_PATH: /test-results/lab-interactions.sqlite3
+      SAMANTHA_LOG_REASONING: "false"
+      CONTENT_VL_BASE_URL: ${TASK_VL_BASE_URL:-http://host.docker.internal:11434/v1}
+      CONTENT_VL_MODEL: ${TASK_VL_MODEL:-qwen2.5vl:7b}
+      CONTENT_VL_API_KEY: ${TASK_VL_API_KEY:-ollama}
+      CONTENT_EMBEDDING_BACKEND: ${TASK_EMBEDDING_BACKEND:-ollama}
+      CONTENT_EMBEDDING_MODEL: ${TASK_EMBEDDING_MODEL:-bge-m3}
+      CONTENT_EMBEDDING_DEVICE: ${TASK_EMBEDDING_DEVICE:-cpu}
+      CONTENT_OLLAMA_URL: ${TASK_OLLAMA_URL:-http://host.docker.internal:11434}
+      CONTENT_QDRANT_URL: ""
+      CONTENT_QDRANT_PATH: /test-results/lab-content-index
+      CONTENT_TIMEOUT: ${TASK_CONTENT_TIMEOUT:-180}
+      HF_HOME: /test-results/model-cache/huggingface
+      XDG_CACHE_HOME: /test-results/model-cache
+
+volumes:
+  task_results:

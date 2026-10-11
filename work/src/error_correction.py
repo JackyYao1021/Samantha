@@ -1,6 +1,7 @@
 from chat import request_text
 from datetime import datetime
 from pathlib import Path
+from prompts.registry import bind_source_prompt
 
 
 def error_correction_agent(user_input, code, error_message):
@@ -63,7 +64,8 @@ def error_correction_agent(user_input, code, error_message):
     """
     ## Original User Input:
     
-    return request_text(begin_messages, input_message)
+    prompt = bind_source_prompt("terminal.correction", begin_messages, error_correction_agent)
+    return request_text(prompt, input_message)
 
 # get current path
 def get_current_path():

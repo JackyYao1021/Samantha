@@ -1,0 +1,14 @@
+{
+  "schema_version": "1.0",
+  "name": "Offline episodes with persistent BM25 and verified objects",
+  "mode": "fake",
+  "variant": "faithful",
+  "repeats": 1,
+  "timeout_seconds": 30,
+  "max_attempts": 3,
+  "runtime": {
+    "memory": "bm25",
+    "object_tracking": true,
+    "azure_fallback": false
+  }
+}

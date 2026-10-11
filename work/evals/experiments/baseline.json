@@ -1,0 +1,14 @@
+{
+  "schema_version": "1.0",
+  "name": "offline_fake_baseline",
+  "mode": "fake",
+  "variant": "faithful",
+  "repeats": 1,
+  "timeout_seconds": 30,
+  "max_attempts": 100,
+  "runtime": {
+    "memory": "none",
+    "object_tracking": false,
+    "azure_fallback": false
+  }
+}

@@ -4,9 +4,11 @@ import hashlib
 import json
 import re
 from typing import Literal, TypedDict
+from typing_extensions import NotRequired
 
 from chat import Chat
 from model_output import parse_json_object
+from prompts.registry import bind_prompt
 
 
 class ReviewRequest(TypedDict):
@@ -17,6 +19,9 @@ class ReviewRequest(TypedDict):
     cwd: str
     shell: str
     previous_error: str
+    memory_context: NotRequired[str]
+    object_context: NotRequired[str]
+    expected_effects: NotRequired[list[dict]]
 
 
 class CommandReview(TypedDict):
@@ -118,7 +123,9 @@ def review_commands(request: ReviewRequest) -> CommandReview:
     language = ("\n所有自然语言字段必须使用简体中文：summary、effects、issues、uncertainties、"
                 "recommendation。verdict 和 risk 使用 schema 规定的英文枚举。" if chinese else
                 "\nWrite all prose fields in the language of user_request, not the plan or command names.")
-    chat = Chat(begin_messages=REVIEW_PROMPT + language, max_tokens=1536,
+    prompt = bind_prompt("terminal.review.zh" if chinese else "terminal.review.default",
+                         REVIEW_PROMPT + language)
+    chat = Chat(begin_messages=prompt, max_tokens=1536,
                 allow_azure_fallback=False, response_format={
                     "type": "json_schema", "json_schema": {
                         "name": "command_review", "strict": True, "schema": REVIEW_SCHEMA,

@@ -7,6 +7,7 @@ from clarification_context import (
     build_clarification_input, check_clarification_question,
 )
 from model_output import parse_json_object, strip_code_fence
+from prompts.registry import bind_source_prompt
 
 # get current path
 def get_current_path():
@@ -98,7 +99,8 @@ def parse_clarification_reply(reply):
 
 def clarify_intent_once(user_input, history=None):
     """One model turn; LangGraph owns clarification history and user input."""
-    chat_agent = Chat(begin_messages=clarification_prompt(), response_format=CLARIFICATION_RESPONSE_FORMAT)
+    prompt = bind_source_prompt("terminal.clarification", clarification_prompt(), clarification_prompt)
+    chat_agent = Chat(begin_messages=prompt, response_format=CLARIFICATION_RESPONSE_FORMAT)
     chat_agent.messages.extend(history or [])
     return parse_clarification_reply(chat_agent.chat_context(user_input))
 

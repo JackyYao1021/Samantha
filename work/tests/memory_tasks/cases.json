@@ -1,0 +1,55 @@
+{
+  "schema_version": 1,
+  "benchmark": "Samantha Memory Tasks v1",
+  "cases": [
+    {
+      "id": "MT01", "title": "跨调用指代最近创建的文件",
+      "allowed_changes": ["notes.txt"], "fixtures": [],
+      "steps": [
+        {"request": "在当前目录创建 notes.txt，内容为 alpha 加换行，完成后留在当前目录。", "status": "succeeded", "instruction": "审阅后确认执行。", "files": {"notes.txt": "alpha\n"}},
+        {"request": "给刚才创建的那个文件追加 beta 加换行，留在当前目录。", "status": "succeeded", "instruction": "不补充文件名；审阅后确认执行。", "files": {"notes.txt": "alpha\nbeta\n"}, "max_clarifications": 0}
+      ]
+    },
+    {
+      "id": "MT02", "title": "重命名后的路径更新",
+      "allowed_changes": ["draft.txt", "final.txt"], "fixtures": [],
+      "steps": [
+        {"request": "在当前目录创建 draft.txt，内容为 alpha 加换行，留在这里。", "status": "succeeded", "instruction": "审阅后确认执行。", "files": {"draft.txt": "alpha\n"}},
+        {"request": "把刚才的文件重命名为 final.txt，留在当前目录。", "status": "succeeded", "instruction": "不补充旧文件名；审阅后确认执行。", "files": {"final.txt": "alpha\n"}, "absent": ["draft.txt"], "max_clarifications": 0},
+        {"request": "给刚才重命名后的文件追加 beta 加换行，留在当前目录。", "status": "succeeded", "instruction": "不补充文件名；审阅后确认执行。", "files": {"final.txt": "alpha\nbeta\n"}, "absent": ["draft.txt"], "max_clarifications": 0}
+      ]
+    },
+    {
+      "id": "MT03", "title": "中文和空格文件名",
+      "allowed_changes": ["会议 纪要.txt"], "fixtures": [],
+      "steps": [
+        {"request": "在当前目录创建文件『会议 纪要.txt』，内容为 alpha 加换行，留在这里。", "status": "succeeded", "instruction": "审阅后确认执行。", "files": {"会议 纪要.txt": "alpha\n"}},
+        {"request": "给刚才那个会议纪要文件追加 beta 加换行，留在当前目录。", "status": "succeeded", "instruction": "不补充文件名；审阅后确认执行。", "files": {"会议 纪要.txt": "alpha\nbeta\n"}, "max_clarifications": 0}
+      ]
+    },
+    {
+      "id": "MT04", "title": "拒绝的创建操作不能成为已完成事实",
+      "allowed_changes": [], "fixtures": [],
+      "steps": [
+        {"request": "在当前目录创建 cancelled.txt，内容为 alpha 加换行，留在这里。", "status": "cancelled", "instruction": "在命令确认时回答 n。", "absent": ["cancelled.txt"], "confirmation_answer": "n"},
+        {"request": "给刚才创建的那个文件追加 beta 加换行，留在当前目录。", "status": "cancelled", "instruction": "应先询问文件名；在澄清时回答 cancel。若直接生成命令，在确认时回答 n。", "absent": ["cancelled.txt"], "min_clarifications": 1, "no_execution": true}
+      ]
+    },
+    {
+      "id": "MT05", "title": "当前明确请求覆盖历史指代",
+      "allowed_changes": ["old.txt", "new.txt"], "fixtures": [{"path": "new.txt", "text": "new\n"}],
+      "steps": [
+        {"request": "在当前目录创建 old.txt，内容为 old 加换行，留在这里。", "status": "succeeded", "instruction": "审阅后确认执行。", "files": {"old.txt": "old\n", "new.txt": "new\n"}},
+        {"request": "给当前目录的 new.txt 追加 beta 加换行，留在当前目录。", "status": "succeeded", "instruction": "审阅后确认执行。", "files": {"old.txt": "old\n", "new.txt": "new\nbeta\n"}, "max_clarifications": 0}
+      ]
+    },
+    {
+      "id": "MT06", "title": "项目命名空间隔离",
+      "allowed_changes": ["private.txt"], "fixtures": [],
+      "steps": [
+        {"project": "project-a", "request": "在当前目录创建 private.txt，内容为 alpha 加换行，留在这里。", "status": "succeeded", "instruction": "审阅后确认执行。", "files": {"private.txt": "alpha\n"}},
+        {"project": "project-b", "request": "给我刚才创建的那个文件追加 beta 加换行，留在当前目录。", "status": "cancelled", "instruction": "新项目不应拿到旧项目记忆；应询问文件名。在澄清时回答 cancel；若直接生成命令，在确认时回答 n。", "files": {"private.txt": "alpha\n"}, "min_clarifications": 1, "no_execution": true}
+      ]
+    }
+  ]
+}

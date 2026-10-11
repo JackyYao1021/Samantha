@@ -2,6 +2,7 @@ import sys
 from pathlib import Path
 from datetime import datetime
 from chat import request_text
+from prompts.registry import bind_source_prompt
 
 # get current path
 def get_current_path():
@@ -85,8 +86,10 @@ def parse_user_intent(user_input, *, object_tracking=False):
             "Do not add directory changes, directory preparation, or extra operations unless "
             "the user requested them. Put the complete natural-language plan in the text field."
         )
-        return request_text(begin_messages, user_input, strict_schema=True)
-    return request_text(begin_messages, user_input)
+        prompt = bind_source_prompt("terminal.intent.tracked", begin_messages, parse_user_intent)
+        return request_text(prompt, user_input, strict_schema=True)
+    prompt = bind_source_prompt("terminal.intent", begin_messages, parse_user_intent)
+    return request_text(prompt, user_input)
 
 if __name__ == "__main__":
     input_list = [

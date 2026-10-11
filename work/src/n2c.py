@@ -1,4 +1,5 @@
 from chat import Chat
+from prompts.registry import bind_source_prompt
 
 
 def _render_tracked_commands(response, cwd):
@@ -105,7 +106,9 @@ def natural_language_to_command_agent(user_input, *, object_tracking=False):
                 }, "required": ["Explanation", "Effects"], "additionalProperties": False,
             },
         }}
-    chat_agent = Chat(begin_messages, response_format=response_format)
+    prompt = bind_source_prompt("terminal.generation.tracked" if object_tracking else "terminal.generation",
+                                begin_messages, natural_language_to_command_agent)
+    chat_agent = Chat(prompt, response_format=response_format)
     response = chat_agent.chat_context(user_input)
     if object_tracking:
         from pathlib import Path

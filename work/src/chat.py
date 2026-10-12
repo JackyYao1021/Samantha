@@ -1,6 +1,7 @@
 # chat module, handles chat interactions with OpenAI and Qwen models
 
 import os
+import math
 from types import SimpleNamespace
 import httpx
 from openai import AzureOpenAI, OpenAI
@@ -44,7 +45,11 @@ def response_text(response):
 
 class Chat:
     def __init__(self, begin_messages=None, max_tokens=4096, temperature=0.2, top_p=1.0,
-                 response_format=None, allow_azure_fallback=True):
+                 response_format=None, allow_azure_fallback=True, request_timeout=None):
+        self.request_timeout = float(os.environ.get("QWEN_TIMEOUT", "120")
+                                     if request_timeout is None else request_timeout)
+        if not math.isfinite(self.request_timeout) or self.request_timeout <= 0:
+            raise ValueError("Request timeout must be positive and finite.")
         subscription_key = os.environ.get("AZURE_OPENAI_API_KEY")
         azure_fallback = os.environ.get("SAMANTHA_AZURE_FALLBACK", "false").lower() in {"1", "true", "yes"}
         self.client = AzureOpenAI(
@@ -56,7 +61,7 @@ class Chat:
         self.client_qwen = OpenAI(
             api_key=os.environ.get("QWEN_API_KEY", openai_api_key_qwen),
             base_url=os.environ.get("QWEN_BASE_URL", openai_api_base_qwen),
-            timeout=float(os.environ.get("QWEN_TIMEOUT", "120")),
+            timeout=self.request_timeout,
             max_retries=0,
         )
         self.api_mode = os.environ.get("QWEN_API_MODE", "openai").lower()
@@ -188,7 +193,7 @@ class Chat:
                 payload["format"] = "json"
             else:
                 raise ValueError("Ollama requires json_object or json_schema output.")
-        with httpx.Client(timeout=float(os.environ.get("QWEN_TIMEOUT", "120")),
+        with httpx.Client(timeout=self.request_timeout,
                           trust_env=False) as client:
             with model_request(provider="qwen", transport="ollama", model=self.model_qwen,
                                parameters={**payload, **payload["options"]},

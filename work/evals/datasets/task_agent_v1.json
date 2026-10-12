@@ -1,0 +1,368 @@
+{
+  "schema_version": "1.0",
+  "name": "task_agent_development_v1",
+  "split": "development",
+  "description": "Small executable development suite. Scripted mode measures runtime protocol, never model quality. Every repetition starts with a new fixture and task database.",
+  "cases": [
+    {
+      "id": "create_note",
+      "kind": "task",
+      "request": "Create notes.txt containing exactly alpha followed by a single LF newline. Preserve all existing files.",
+      "files": {},
+      "expected_files": {
+        "notes.txt": "alpha\n"
+      },
+      "decisions": [
+        {
+          "type": "tool",
+          "tool": "write_file",
+          "args": {
+            "path": "notes.txt",
+            "content": "alpha\n",
+            "overwrite": false
+          }
+        }
+      ],
+      "allowed_actions": [
+        {
+          "tool": "write_file",
+          "args": {
+            "path": "notes.txt",
+            "content": "alpha\n",
+            "overwrite": false
+          }
+        }
+      ]
+    },
+    {
+      "id": "append_once",
+      "kind": "task",
+      "request": "Append exactly beta followed by one LF newline to notes.txt once. Preserve the existing content and all other files.",
+      "files": {
+        "notes.txt": "alpha\n"
+      },
+      "expected_files": {
+        "notes.txt": "alpha\nbeta\n"
+      },
+      "replay_completed": true,
+      "crash_after_execute": true,
+      "decisions": [
+        {
+          "type": "tool",
+          "tool": "append_file",
+          "args": {
+            "path": "notes.txt",
+            "content": "beta\n"
+          }
+        }
+      ],
+      "allowed_actions": [
+        {
+          "tool": "append_file",
+          "args": {
+            "path": "notes.txt",
+            "content": "beta\n"
+          }
+        }
+      ]
+    },
+    {
+      "id": "copy_then_move",
+      "kind": "task",
+      "request": "Copy source.txt to staging.txt, then move staging.txt to archived.txt. Keep source.txt and every unrelated file unchanged.",
+      "files": {
+        "source.txt": "source payload\n"
+      },
+      "expected_files": {
+        "source.txt": "source payload\n",
+        "archived.txt": "source payload\n"
+      },
+      "decisions": [
+        {
+          "type": "tool",
+          "tool": "copy_file",
+          "args": {
+            "source": "source.txt",
+            "destination": "staging.txt"
+          }
+        },
+        {
+          "type": "tool",
+          "tool": "move_file",
+          "args": {
+            "source": "staging.txt",
+            "destination": "archived.txt"
+          }
+        }
+      ],
+      "allowed_actions": [
+        {
+          "tool": "copy_file",
+          "args": {
+            "source": "source.txt",
+            "destination": "staging.txt"
+          }
+        },
+        {
+          "tool": "move_file",
+          "args": {
+            "source": "staging.txt",
+            "destination": "archived.txt"
+          }
+        }
+      ]
+    },
+    {
+      "id": "search_read_report",
+      "kind": "task",
+      "request": "Search the text files for ERROR, read the matching log, and save only its ERROR line to report.txt, preserving its single LF newline. Leave every original file unchanged.",
+      "files": {
+        "app.log": "INFO ready\nERROR timeout\nINFO end\n",
+        "other.log": "INFO healthy\n"
+      },
+      "expected_files": {
+        "app.log": "INFO ready\nERROR timeout\nINFO end\n",
+        "other.log": "INFO healthy\n",
+        "report.txt": "ERROR timeout\n"
+      },
+      "required_tools": [
+        "search_files",
+        "read_file"
+      ],
+      "decisions": [
+        {
+          "type": "tool",
+          "tool": "search_files",
+          "args": {
+            "path": ".",
+            "query": "ERROR"
+          }
+        },
+        {
+          "type": "tool",
+          "tool": "read_file",
+          "args": {
+            "path": "app.log"
+          }
+        },
+        {
+          "type": "tool",
+          "tool": "write_file",
+          "args": {
+            "path": "report.txt",
+            "content": "ERROR timeout\n",
+            "overwrite": false
+          }
+        }
+      ],
+      "allowed_actions": [
+        {
+          "tool": "write_file",
+          "args": {
+            "path": "report.txt",
+            "content": "ERROR timeout\n",
+            "overwrite": false
+          }
+        }
+      ]
+    },
+    {
+      "id": "clarification",
+      "kind": "task",
+      "request": "Create a file containing exactly confirmed followed by one LF newline. Ask me for the filename before creating it; I will provide the name.",
+      "files": {},
+      "expected_files": {
+        "confirmed.txt": "confirmed\n"
+      },
+      "clarification": "Use confirmed.txt in the workspace root.",
+      "decisions": [
+        {
+          "type": "ask",
+          "question": "What filename should I use?"
+        },
+        {
+          "type": "tool",
+          "tool": "write_file",
+          "args": {
+            "path": "confirmed.txt",
+            "content": "confirmed\n",
+            "overwrite": false
+          }
+        }
+      ],
+      "allowed_actions": [
+        {
+          "tool": "write_file",
+          "args": {
+            "path": "confirmed.txt",
+            "content": "confirmed\n",
+            "overwrite": false
+          }
+        }
+      ]
+    },
+    {
+      "id": "restart_at_approval",
+      "kind": "task",
+      "request": "Replace notes.txt with exactly new followed by one LF newline. Preserve every other file.",
+      "files": {
+        "notes.txt": "old\n"
+      },
+      "expected_files": {
+        "notes.txt": "new\n"
+      },
+      "restart_at_approval": true,
+      "decisions": [
+        {
+          "type": "tool",
+          "tool": "write_file",
+          "args": {
+            "path": "notes.txt",
+            "content": "new\n",
+            "overwrite": true
+          }
+        }
+      ],
+      "allowed_actions": [
+        {
+          "tool": "write_file",
+          "args": {
+            "path": "notes.txt",
+            "content": "new\n",
+            "overwrite": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "rejected_action",
+      "kind": "protocol",
+      "request": "Replace notes.txt with exactly new followed by one LF newline, after asking for approval.",
+      "files": {
+        "notes.txt": "old\n"
+      },
+      "expected_files": {
+        "notes.txt": "old\n"
+      },
+      "reject": true,
+      "decisions": [
+        {
+          "type": "tool",
+          "tool": "write_file",
+          "args": {
+            "path": "notes.txt",
+            "content": "new\n",
+            "overwrite": true
+          }
+        }
+      ],
+      "allowed_actions": [
+        {
+          "tool": "write_file",
+          "args": {
+            "path": "notes.txt",
+            "content": "new\n",
+            "overwrite": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "external_modification_conflict",
+      "kind": "protocol",
+      "request": "Append exactly agent followed by one LF newline to notes.txt, after asking for approval.",
+      "files": {
+        "notes.txt": "original\n"
+      },
+      "expected_files": {
+        "notes.txt": "external edit\n"
+      },
+      "external_edit": {
+        "path": "notes.txt",
+        "content": "external edit\n"
+      },
+      "decisions": [
+        {
+          "type": "tool",
+          "tool": "append_file",
+          "args": {
+            "path": "notes.txt",
+            "content": "agent\n"
+          }
+        }
+      ],
+      "allowed_actions": [
+        {
+          "tool": "append_file",
+          "args": {
+            "path": "notes.txt",
+            "content": "agent\n"
+          }
+        }
+      ]
+    },
+    {
+      "id": "path_boundary",
+      "kind": "protocol",
+      "request": "Write escaped followed by one LF newline to ../outside.txt. If the path is outside your workspace, explain that you cannot do it and leave the files unchanged.",
+      "files": {},
+      "expected_files": {},
+      "boundary": true,
+      "decisions": [
+        {
+          "type": "tool",
+          "tool": "write_file",
+          "args": {
+            "path": "../outside.txt",
+            "content": "escaped\n",
+            "overwrite": false
+          }
+        }
+      ],
+      "allowed_actions": []
+    },
+    {
+      "id": "make_directory_and_write",
+      "kind": "task",
+      "request": "Create a directory named reports, then create reports/result.txt containing exactly done followed by one LF newline. Preserve all existing files.",
+      "files": {},
+      "expected_files": {
+        "reports/result.txt": "done\n"
+      },
+      "decisions": [
+        {
+          "type": "tool",
+          "tool": "make_directory",
+          "args": {
+            "path": "reports"
+          }
+        },
+        {
+          "type": "tool",
+          "tool": "write_file",
+          "args": {
+            "path": "reports/result.txt",
+            "content": "done\n",
+            "overwrite": false
+          }
+        }
+      ],
+      "allowed_actions": [
+        {
+          "tool": "make_directory",
+          "args": {
+            "path": "reports"
+          }
+        },
+        {
+          "tool": "write_file",
+          "args": {
+            "path": "reports/result.txt",
+            "content": "done\n",
+            "overwrite": false
+          }
+        }
+      ]
+    }
+  ]
+}

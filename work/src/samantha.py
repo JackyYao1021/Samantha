@@ -174,6 +174,11 @@ def _process(initial_input, terminal_history, *, services, input_fn, output_fn, 
 
 def main():
     load_dotenv(Path(__file__).resolve().parents[2] / ".env", override=False)
+    if len(sys.argv) > 1 and sys.argv[1] in {"agent", "serve", "resume"}:
+        from task_agent.cli import main as task_main
+        write_current_dir(os.getcwd())
+        arguments = sys.argv[2:] if sys.argv[1] == "agent" else sys.argv[1:]
+        return task_main(arguments)
     if len(sys.argv) > 1 and sys.argv[1] == "history":
         from history_cli import main as history_main
         write_current_dir(os.getcwd())

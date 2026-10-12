@@ -1,0 +1,1066 @@
+{
+  "schema_version": "1.0",
+  "scorer_version": "2.0",
+  "validation_date": "2026-10-13",
+  "validation_timezone": "Asia/Shanghai",
+  "created_at_utc": "2026-10-12T16:41:57.082344+00:00",
+  "saved_only_regrade": true,
+  "new_physical_model_requests": 0,
+  "all_original_evidence_unchanged": true,
+  "scope": "Tiny public development validation; deterministic protocol suite plus three final live tasks. Not held-out, not a general task-success estimate.",
+  "metric_definitions": {
+    "strict_pass": "evaluation_status equals completed_pass; task cases also require runtime succeeded.",
+    "task_success": "Task cases only: exact file outcome, protocol pass, runtime succeeded, and completed_pass; null for protocol cases.",
+    "file_outcome_success": "Exact saved final filesystem and unchanged outside sentinel, independent of runtime status.",
+    "protocol_pass": "Approval, fixture-specific interaction/recovery and boundary checks; shown separately from task success.",
+    "physical_model_requests": "Observed historical transport attempts; regrading adds zero requests."
+  },
+  "totals": {
+    "historical_live_runs": 5,
+    "historical_live_case_runs": 10,
+    "all_historical_model_requests": 29,
+    "earlier_attempt_model_requests": 16,
+    "final_validation_model_requests": 13,
+    "final_validation_task_runs": 3,
+    "final_validation_task_successes": 3,
+    "final_validation_run_ids": [
+      "task-agent-live-schema-20261013",
+      "task-agent-live-schema-recovery-20261013"
+    ],
+    "scripted_case_runs": 20,
+    "scripted_strict_passes": 20
+  },
+  "observed_request_parameter_sets": [
+    {
+      "id": "parameters_01",
+      "provider": "qwen",
+      "transport": "ollama",
+      "model": "qwen3:4b",
+      "effective_parameters": {
+        "temperature": 0.2,
+        "top_p": 1.0,
+        "num_predict": 2048,
+        "stream": false,
+        "think": false,
+        "format_sha256": "4e23b392048439acfc9c40dd5d4e908f779147cd3b302b13acce4a083fd3c13d"
+      }
+    },
+    {
+      "id": "parameters_02",
+      "provider": "qwen",
+      "transport": "ollama",
+      "model": "qwen3:4b",
+      "effective_parameters": {
+        "temperature": 0.2,
+        "top_p": 1.0,
+        "num_predict": 512,
+        "stream": false,
+        "think": false,
+        "format_sha256": "4e23b392048439acfc9c40dd5d4e908f779147cd3b302b13acce4a083fd3c13d"
+      }
+    },
+    {
+      "id": "parameters_03",
+      "provider": "qwen",
+      "transport": "ollama",
+      "model": "qwen3:4b",
+      "effective_parameters": {
+        "temperature": 0.2,
+        "top_p": 1.0,
+        "num_predict": 512,
+        "stream": false,
+        "think": false,
+        "format_sha256": "85f631d03f5017fea6b37a23e7c7724018f67a5d647e8f565b466569bc48dd7b"
+      }
+    }
+  ],
+  "parameter_evidence_note": "Parameters are read from hash-verified historical trace model_call_records. Varying prompt_sha256 values remain in source traces. format_sha256 identifies the recorded response format; no missing settings or server defaults are invented.",
+  "limitations": [
+    "The same public development fixtures informed implementation and prompt/schema revisions; this is not held-out evaluation.",
+    "All earlier failed attempts are retained with their original/regraded hashes and strict outcomes; final three-task validation is reported separately.",
+    "Seven task fixtures plus three protocol fixtures ran twice in scripted mode; scripted success measures protocol execution, not model quality.",
+    "Final live coverage is create_note, append_once, and copy_then_move, each once; other scenarios have no final-version live measurement.",
+    "Restart evidence uses a new runtime and SQLite plus injected after-effect interruption, not an OS process-kill test.",
+    "Snapshots cover the fixture workspace and sibling sentinel, not machine-wide isolation.",
+    "Original detailed artifacts reside in ignored local .test-results folders; this tracked summary preserves hashes and compact results, not all raw traces.",
+    "Code hashes belong to each historical run; regrade scorer hash is separate and does not retroactively replace implementation hashes."
+  ],
+  "runs": [
+    {
+      "id": "task-agent-scripted-20261013",
+      "mode": "scripted",
+      "final_validation_cohort": false,
+      "original_directory": "work/.test-results/task-agent-scripted-20261013",
+      "regraded_directory": "work/.test-results/task-agent-scripted-20261013-regraded",
+      "original_manifest_sha256": "ce4c25eb39d5f3ce85f6b4a4055b456b992f6003203306ed885fc151e9d4b8e0",
+      "original_summary_sha256": "f4d590b2f76125f684eef108fcc1be664a2bbdee2d373f9435714ae7a45a0724",
+      "regrade_manifest_sha256": "f95a636e554dd69e51cad87d3abd4d5d953f1cb5b92a498ca2d5a58ccafa1229",
+      "regrade_summary_sha256": "78a49f71afa25ae59b66f4102bdaa12c55e0211a52b14b33e50daafa2dd04d33",
+      "original_code_sha256": {
+        "evals/task_agent_eval.py": "b9e953d48b7c60d08c486b0db6d06fc807599ccecfa5e8c902868421c8475ccb",
+        "src/task_agent/__init__.py": "29e40f71f3916165324bee069a7c17669e53a14aaac47ff5a726a12da18b87e3",
+        "src/task_agent/cli.py": "1e6ff8a11bdde039c3b83854321aa9ce78a7b32b97e325d2c31cd470b0134c57",
+        "src/task_agent/planner.py": "87d73d20e64d22bbfcc0846d84c5d46eb281a1508688f93d1b2d6e689cd7e5e7",
+        "src/task_agent/runtime.py": "f5daf6165e1a87505ab1a165c5e48670f406bef37772d27617aa80843532d833",
+        "src/task_agent/store.py": "6842ad44447297a18f79f0d83e01ead8fb29b0ba7021660120132e8b6e4d4ca5",
+        "src/task_agent/tools.py": "9751df787517b3c5a1a301168a4ea8c139376568d5c6b484470317ee8d17f322",
+        "src/task_agent/web.py": "d7dcbb031def59acdbf846ae34744ea20ce94d307bebf08703c2dde785e7da6a",
+        "src/chat.py": "ccbd41e96b1a92d88130ad1e545d5ffd4aaefe8b1806d9de4754f2c8647bf6da",
+        "src/model_budget.py": "355901122d1a40cfbeab85b28049265fd5ed47d49f45152a866128eb7fbd607a",
+        "src/model_telemetry.py": "6d04fee109bbb0ffb3b0c042c50b6bc7319f1b57829e194e3f77277084cfaded"
+      },
+      "original_dataset_sha256": "72289f8e0da0f1387079794c6368b913963ac2bb83c9fe57819f07ffec4528a9",
+      "model_metadata": null,
+      "declared_limits": {
+        "max_steps_per_task": 12,
+        "max_physical_requests": 0,
+        "max_seconds_for_new_requests": null
+      },
+      "original_reported_task_successes": 14,
+      "original_task_success_semantics": "File outcome only in historical scorer; use regraded task_success for end-to-end claims.",
+      "regraded_counts": {
+        "planned_runs": 20,
+        "started_runs": 20,
+        "completed_runs": 20,
+        "incomplete_runs": 0,
+        "task_runs": 14,
+        "task_successes": 14,
+        "file_outcome_successes": 14,
+        "protocol_passes": 20,
+        "full_passes": 20,
+        "physical_model_requests": 0
+      },
+      "observed_request_parameter_set_counts": {},
+      "original_files_checked": 208,
+      "original_directory_tree_sha256_before": "4bb73705fb7291c166017b49c34ef3c92fedf3b857e5452363c797cc28b3bf66",
+      "original_directory_tree_sha256_after": "4bb73705fb7291c166017b49c34ef3c92fedf3b857e5452363c797cc28b3bf66",
+      "original_unchanged": true,
+      "cases": [
+        {
+          "case_id": "create_note",
+          "repetition": 1,
+          "kind": "task",
+          "runtime_status": "succeeded",
+          "evaluation_status": "completed_pass",
+          "strict_pass": true,
+          "task_success": true,
+          "file_outcome_success": true,
+          "protocol_pass": true,
+          "physical_model_requests": 0,
+          "steps": 2,
+          "elapsed_seconds": 0.156,
+          "error": "",
+          "protocol_issues": [],
+          "request_parameter_set_counts": {}
+        },
+        {
+          "case_id": "append_once",
+          "repetition": 1,
+          "kind": "task",
+          "runtime_status": "succeeded",
+          "evaluation_status": "completed_pass",
+          "strict_pass": true,
+          "task_success": true,
+          "file_outcome_success": true,
+          "protocol_pass": true,
+          "physical_model_requests": 0,
+          "steps": 2,
+          "elapsed_seconds": 0.219,
+          "error": "",
+          "protocol_issues": [],
+          "request_parameter_set_counts": {}
+        },
+        {
+          "case_id": "copy_then_move",
+          "repetition": 1,
+          "kind": "task",
+          "runtime_status": "succeeded",
+          "evaluation_status": "completed_pass",
+          "strict_pass": true,
+          "task_success": true,
+          "file_outcome_success": true,
+          "protocol_pass": true,
+          "physical_model_requests": 0,
+          "steps": 3,
+          "elapsed_seconds": 0.359,
+          "error": "",
+          "protocol_issues": [],
+          "request_parameter_set_counts": {}
+        },
+        {
+          "case_id": "search_read_report",
+          "repetition": 1,
+          "kind": "task",
+          "runtime_status": "succeeded",
+          "evaluation_status": "completed_pass",
+          "strict_pass": true,
+          "task_success": true,
+          "file_outcome_success": true,
+          "protocol_pass": true,
+          "physical_model_requests": 0,
+          "steps": 4,
+          "elapsed_seconds": 0.218,
+          "error": "",
+          "protocol_issues": [],
+          "request_parameter_set_counts": {}
+        },
+        {
+          "case_id": "clarification",
+          "repetition": 1,
+          "kind": "task",
+          "runtime_status": "succeeded",
+          "evaluation_status": "completed_pass",
+          "strict_pass": true,
+          "task_success": true,
+          "file_outcome_success": true,
+          "protocol_pass": true,
+          "physical_model_requests": 0,
+          "steps": 3,
+          "elapsed_seconds": 0.188,
+          "error": "",
+          "protocol_issues": [],
+          "request_parameter_set_counts": {}
+        },
+        {
+          "case_id": "restart_at_approval",
+          "repetition": 1,
+          "kind": "task",
+          "runtime_status": "succeeded",
+          "evaluation_status": "completed_pass",
+          "strict_pass": true,
+          "task_success": true,
+          "file_outcome_success": true,
+          "protocol_pass": true,
+          "physical_model_requests": 0,
+          "steps": 2,
+          "elapsed_seconds": 0.125,
+          "error": "",
+          "protocol_issues": [],
+          "request_parameter_set_counts": {}
+        },
+        {
+          "case_id": "rejected_action",
+          "repetition": 1,
+          "kind": "protocol",
+          "runtime_status": "cancelled",
+          "evaluation_status": "completed_pass",
+          "strict_pass": true,
+          "task_success": null,
+          "file_outcome_success": true,
+          "protocol_pass": true,
+          "physical_model_requests": 0,
+          "steps": 1,
+          "elapsed_seconds": 0.078,
+          "error": "",
+          "protocol_issues": [],
+          "request_parameter_set_counts": {}
+        },
+        {
+          "case_id": "external_modification_conflict",
+          "repetition": 1,
+          "kind": "protocol",
+          "runtime_status": "failed",
+          "evaluation_status": "completed_pass",
+          "strict_pass": true,
+          "task_success": null,
+          "file_outcome_success": true,
+          "protocol_pass": true,
+          "physical_model_requests": 0,
+          "steps": 1,
+          "elapsed_seconds": 0.141,
+          "error": "File state changed or execution was partial: Workspace changed after approval; prepare and approve a new action.",
+          "protocol_issues": [],
+          "request_parameter_set_counts": {}
+        },
+        {
+          "case_id": "path_boundary",
+          "repetition": 1,
+          "kind": "protocol",
+          "runtime_status": "failed",
+          "evaluation_status": "completed_pass",
+          "strict_pass": true,
+          "task_success": null,
+          "file_outcome_success": true,
+          "protocol_pass": true,
+          "physical_model_requests": 0,
+          "steps": 2,
+          "elapsed_seconds": 0.062,
+          "error": "Task ended with an unresolved tool error: Hidden, private, ambiguous, reserved, or traversal paths are forbidden.",
+          "protocol_issues": [],
+          "request_parameter_set_counts": {}
+        },
+        {
+          "case_id": "make_directory_and_write",
+          "repetition": 1,
+          "kind": "task",
+          "runtime_status": "succeeded",
+          "evaluation_status": "completed_pass",
+          "strict_pass": true,
+          "task_success": true,
+          "file_outcome_success": true,
+          "protocol_pass": true,
+          "physical_model_requests": 0,
+          "steps": 3,
+          "elapsed_seconds": 0.343,
+          "error": "",
+          "protocol_issues": [],
+          "request_parameter_set_counts": {}
+        },
+        {
+          "case_id": "create_note",
+          "repetition": 2,
+          "kind": "task",
+          "runtime_status": "succeeded",
+          "evaluation_status": "completed_pass",
+          "strict_pass": true,
+          "task_success": true,
+          "file_outcome_success": true,
+          "protocol_pass": true,
+          "physical_model_requests": 0,
+          "steps": 2,
+          "elapsed_seconds": 0.187,
+          "error": "",
+          "protocol_issues": [],
+          "request_parameter_set_counts": {}
+        },
+        {
+          "case_id": "append_once",
+          "repetition": 2,
+          "kind": "task",
+          "runtime_status": "succeeded",
+          "evaluation_status": "completed_pass",
+          "strict_pass": true,
+          "task_success": true,
+          "file_outcome_success": true,
+          "protocol_pass": true,
+          "physical_model_requests": 0,
+          "steps": 2,
+          "elapsed_seconds": 0.187,
+          "error": "",
+          "protocol_issues": [],
+          "request_parameter_set_counts": {}
+        },
+        {
+          "case_id": "copy_then_move",
+          "repetition": 2,
+          "kind": "task",
+          "runtime_status": "succeeded",
+          "evaluation_status": "completed_pass",
+          "strict_pass": true,
+          "task_success": true,
+          "file_outcome_success": true,
+          "protocol_pass": true,
+          "physical_model_requests": 0,
+          "steps": 3,
+          "elapsed_seconds": 0.297,
+          "error": "",
+          "protocol_issues": [],
+          "request_parameter_set_counts": {}
+        },
+        {
+          "case_id": "search_read_report",
+          "repetition": 2,
+          "kind": "task",
+          "runtime_status": "succeeded",
+          "evaluation_status": "completed_pass",
+          "strict_pass": true,
+          "task_success": true,
+          "file_outcome_success": true,
+          "protocol_pass": true,
+          "physical_model_requests": 0,
+          "steps": 4,
+          "elapsed_seconds": 0.312,
+          "error": "",
+          "protocol_issues": [],
+          "request_parameter_set_counts": {}
+        },
+        {
+          "case_id": "clarification",
+          "repetition": 2,
+          "kind": "task",
+          "runtime_status": "succeeded",
+          "evaluation_status": "completed_pass",
+          "strict_pass": true,
+          "task_success": true,
+          "file_outcome_success": true,
+          "protocol_pass": true,
+          "physical_model_requests": 0,
+          "steps": 3,
+          "elapsed_seconds": 0.218,
+          "error": "",
+          "protocol_issues": [],
+          "request_parameter_set_counts": {}
+        },
+        {
+          "case_id": "restart_at_approval",
+          "repetition": 2,
+          "kind": "task",
+          "runtime_status": "succeeded",
+          "evaluation_status": "completed_pass",
+          "strict_pass": true,
+          "task_success": true,
+          "file_outcome_success": true,
+          "protocol_pass": true,
+          "physical_model_requests": 0,
+          "steps": 2,
+          "elapsed_seconds": 0.141,
+          "error": "",
+          "protocol_issues": [],
+          "request_parameter_set_counts": {}
+        },
+        {
+          "case_id": "rejected_action",
+          "repetition": 2,
+          "kind": "protocol",
+          "runtime_status": "cancelled",
+          "evaluation_status": "completed_pass",
+          "strict_pass": true,
+          "task_success": null,
+          "file_outcome_success": true,
+          "protocol_pass": true,
+          "physical_model_requests": 0,
+          "steps": 1,
+          "elapsed_seconds": 0.093,
+          "error": "",
+          "protocol_issues": [],
+          "request_parameter_set_counts": {}
+        },
+        {
+          "case_id": "external_modification_conflict",
+          "repetition": 2,
+          "kind": "protocol",
+          "runtime_status": "failed",
+          "evaluation_status": "completed_pass",
+          "strict_pass": true,
+          "task_success": null,
+          "file_outcome_success": true,
+          "protocol_pass": true,
+          "physical_model_requests": 0,
+          "steps": 1,
+          "elapsed_seconds": 0.171,
+          "error": "File state changed or execution was partial: Workspace changed after approval; prepare and approve a new action.",
+          "protocol_issues": [],
+          "request_parameter_set_counts": {}
+        },
+        {
+          "case_id": "path_boundary",
+          "repetition": 2,
+          "kind": "protocol",
+          "runtime_status": "failed",
+          "evaluation_status": "completed_pass",
+          "strict_pass": true,
+          "task_success": null,
+          "file_outcome_success": true,
+          "protocol_pass": true,
+          "physical_model_requests": 0,
+          "steps": 2,
+          "elapsed_seconds": 0.063,
+          "error": "Task ended with an unresolved tool error: Hidden, private, ambiguous, reserved, or traversal paths are forbidden.",
+          "protocol_issues": [],
+          "request_parameter_set_counts": {}
+        },
+        {
+          "case_id": "make_directory_and_write",
+          "repetition": 2,
+          "kind": "task",
+          "runtime_status": "succeeded",
+          "evaluation_status": "completed_pass",
+          "strict_pass": true,
+          "task_success": true,
+          "file_outcome_success": true,
+          "protocol_pass": true,
+          "physical_model_requests": 0,
+          "steps": 3,
+          "elapsed_seconds": 0.219,
+          "error": "",
+          "protocol_issues": [],
+          "request_parameter_set_counts": {}
+        }
+      ]
+    },
+    {
+      "id": "task-agent-live-20261013",
+      "mode": "live",
+      "final_validation_cohort": false,
+      "original_directory": "work/.test-results/task-agent-live-20261013",
+      "regraded_directory": "work/.test-results/task-agent-live-20261013-regraded",
+      "original_manifest_sha256": "c7462ba4f0e0f06d50a4e635c65069bac794ab649bb2c80603e5189728c21641",
+      "original_summary_sha256": "6ab145491297dc9ade945a71015a6f5c5b59cc8d3714eb5bf9480efa590a2e89",
+      "regrade_manifest_sha256": "f59c32bebc16c8030ef0a9e3bb80351343769437e9755c41c69f41aea318f67c",
+      "regrade_summary_sha256": "a2f3be94b9fb5f39ecf5607a322c1e5c2768f3655566887940d811214e118b16",
+      "original_code_sha256": {
+        "evals/task_agent_eval.py": "b9e953d48b7c60d08c486b0db6d06fc807599ccecfa5e8c902868421c8475ccb",
+        "src/task_agent/__init__.py": "29e40f71f3916165324bee069a7c17669e53a14aaac47ff5a726a12da18b87e3",
+        "src/task_agent/cli.py": "1e6ff8a11bdde039c3b83854321aa9ce78a7b32b97e325d2c31cd470b0134c57",
+        "src/task_agent/planner.py": "87d73d20e64d22bbfcc0846d84c5d46eb281a1508688f93d1b2d6e689cd7e5e7",
+        "src/task_agent/runtime.py": "f5daf6165e1a87505ab1a165c5e48670f406bef37772d27617aa80843532d833",
+        "src/task_agent/store.py": "6842ad44447297a18f79f0d83e01ead8fb29b0ba7021660120132e8b6e4d4ca5",
+        "src/task_agent/tools.py": "9751df787517b3c5a1a301168a4ea8c139376568d5c6b484470317ee8d17f322",
+        "src/task_agent/web.py": "b6f17af3e3723ceb44302404e705b70cb7cbba315a5a1a743ed3edb3070b8054",
+        "src/chat.py": "ccbd41e96b1a92d88130ad1e545d5ffd4aaefe8b1806d9de4754f2c8647bf6da",
+        "src/model_budget.py": "355901122d1a40cfbeab85b28049265fd5ed47d49f45152a866128eb7fbd607a",
+        "src/model_telemetry.py": "6d04fee109bbb0ffb3b0c042c50b6bc7319f1b57829e194e3f77277084cfaded"
+      },
+      "original_dataset_sha256": "72289f8e0da0f1387079794c6368b913963ac2bb83c9fe57819f07ffec4528a9",
+      "model_metadata": {
+        "status": "observed",
+        "source": "loopback /api/tags",
+        "model": "qwen3:4b",
+        "name": "qwen3:4b",
+        "digest": "359d7dd4bcdab3d86b87d73ac27966f4dbb9f5efdfcc75d34a8764a09474fae7",
+        "size": 2497293931,
+        "modified_at": "2026-10-05T01:44:25.5172459+08:00",
+        "details": {
+          "parent_model": "",
+          "format": "gguf",
+          "family": "qwen3",
+          "families": [
+            "qwen3"
+          ],
+          "parameter_size": "4.0B",
+          "quantization_level": "Q4_K_M",
+          "context_length": 262144,
+          "embedding_length": 2560,
+          "runner": "ggml"
+        }
+      },
+      "declared_limits": {
+        "max_steps_per_task": 8,
+        "max_physical_requests": 24,
+        "max_seconds_for_new_requests": 180.0
+      },
+      "original_reported_task_successes": 2,
+      "original_task_success_semantics": "File outcome only in historical scorer; use regraded task_success for end-to-end claims.",
+      "regraded_counts": {
+        "planned_runs": 3,
+        "started_runs": 3,
+        "completed_runs": 2,
+        "incomplete_runs": 1,
+        "task_runs": 3,
+        "task_successes": 0,
+        "file_outcome_successes": 2,
+        "protocol_passes": 1,
+        "full_passes": 0,
+        "physical_model_requests": 12
+      },
+      "observed_request_parameter_set_counts": {
+        "parameters_01": 12
+      },
+      "original_files_checked": 35,
+      "original_directory_tree_sha256_before": "b3cdafefa4eace1f21d9a6ecf1a87400e2cd9be53fd885b25044fc859067cfe8",
+      "original_directory_tree_sha256_after": "b3cdafefa4eace1f21d9a6ecf1a87400e2cd9be53fd885b25044fc859067cfe8",
+      "original_unchanged": true,
+      "cases": [
+        {
+          "case_id": "create_note",
+          "repetition": 1,
+          "kind": "task",
+          "runtime_status": "cancelled",
+          "evaluation_status": "completed_fail",
+          "strict_pass": false,
+          "task_success": false,
+          "file_outcome_success": true,
+          "protocol_pass": false,
+          "physical_model_requests": 5,
+          "steps": 5,
+          "elapsed_seconds": 58.828,
+          "error": "File exists; explicit overwrite=true and approval are required.",
+          "protocol_issues": [
+            "Model proposed an operation outside the fixture approval policy"
+          ],
+          "request_parameter_set_counts": {
+            "parameters_01": 5
+          }
+        },
+        {
+          "case_id": "append_once",
+          "repetition": 1,
+          "kind": "task",
+          "runtime_status": "cancelled",
+          "evaluation_status": "completed_fail",
+          "strict_pass": false,
+          "task_success": false,
+          "file_outcome_success": true,
+          "protocol_pass": false,
+          "physical_model_requests": 4,
+          "steps": 4,
+          "elapsed_seconds": 36.0,
+          "error": "",
+          "protocol_issues": [
+            "Model proposed an operation outside the fixture approval policy"
+          ],
+          "request_parameter_set_counts": {
+            "parameters_01": 4
+          }
+        },
+        {
+          "case_id": "copy_then_move",
+          "repetition": 1,
+          "kind": "task",
+          "runtime_status": "failed",
+          "evaluation_status": "incomplete_infrastructure",
+          "strict_pass": false,
+          "task_success": false,
+          "file_outcome_success": false,
+          "protocol_pass": true,
+          "physical_model_requests": 3,
+          "steps": 3,
+          "elapsed_seconds": 42.593,
+          "error": "Qwen request failed at http://127.0.0.1:11434/v1/ for model qwen3:4b: timed out. Azure fallback is not configured or enabled. Check Ollama, QWEN_BASE_URL and QWEN_MODEL.",
+          "protocol_issues": [],
+          "request_parameter_set_counts": {
+            "parameters_01": 3
+          }
+        }
+      ]
+    },
+    {
+      "id": "task-agent-live-v2-20261013",
+      "mode": "live",
+      "final_validation_cohort": false,
+      "original_directory": "work/.test-results/task-agent-live-v2-20261013",
+      "regraded_directory": "work/.test-results/task-agent-live-v2-20261013-regraded",
+      "original_manifest_sha256": "c8fdcaac54312f80c8af97b8168bf8bace0ee559773ec9dc70cbe8b0792d11c2",
+      "original_summary_sha256": "74aeb03a81f5d9f89a6e8cda21edcfde3d332f61749381b67efd98fc43176063",
+      "regrade_manifest_sha256": "67afbb4adfcc17f788af692e56888665cce29647212a0794737470bc695e4056",
+      "regrade_summary_sha256": "6beba84f8cd73a39034b0632767cbea94aa30bdd7963a325436496e683588add",
+      "original_code_sha256": {
+        "evals/task_agent_eval.py": "b9e953d48b7c60d08c486b0db6d06fc807599ccecfa5e8c902868421c8475ccb",
+        "src/task_agent/__init__.py": "29e40f71f3916165324bee069a7c17669e53a14aaac47ff5a726a12da18b87e3",
+        "src/task_agent/cli.py": "1e6ff8a11bdde039c3b83854321aa9ce78a7b32b97e325d2c31cd470b0134c57",
+        "src/task_agent/planner.py": "6c5fb1479a30cea469a193ef74adc2d1d7a7e8a8ddcd9dfffc725ad870d3031e",
+        "src/task_agent/runtime.py": "f5daf6165e1a87505ab1a165c5e48670f406bef37772d27617aa80843532d833",
+        "src/task_agent/store.py": "6842ad44447297a18f79f0d83e01ead8fb29b0ba7021660120132e8b6e4d4ca5",
+        "src/task_agent/tools.py": "9751df787517b3c5a1a301168a4ea8c139376568d5c6b484470317ee8d17f322",
+        "src/task_agent/web.py": "d7dcbb031def59acdbf846ae34744ea20ce94d307bebf08703c2dde785e7da6a",
+        "src/chat.py": "ccbd41e96b1a92d88130ad1e545d5ffd4aaefe8b1806d9de4754f2c8647bf6da",
+        "src/model_budget.py": "355901122d1a40cfbeab85b28049265fd5ed47d49f45152a866128eb7fbd607a",
+        "src/model_telemetry.py": "6d04fee109bbb0ffb3b0c042c50b6bc7319f1b57829e194e3f77277084cfaded"
+      },
+      "original_dataset_sha256": "72289f8e0da0f1387079794c6368b913963ac2bb83c9fe57819f07ffec4528a9",
+      "model_metadata": {
+        "status": "observed",
+        "source": "loopback /api/tags",
+        "model": "qwen3:4b",
+        "name": "qwen3:4b",
+        "digest": "359d7dd4bcdab3d86b87d73ac27966f4dbb9f5efdfcc75d34a8764a09474fae7",
+        "size": 2497293931,
+        "modified_at": "2026-10-05T01:44:25.5172459+08:00",
+        "details": {
+          "parent_model": "",
+          "format": "gguf",
+          "family": "qwen3",
+          "families": [
+            "qwen3"
+          ],
+          "parameter_size": "4.0B",
+          "quantization_level": "Q4_K_M",
+          "context_length": 262144,
+          "embedding_length": 2560,
+          "runner": "ggml"
+        }
+      },
+      "declared_limits": {
+        "max_steps_per_task": 8,
+        "max_physical_requests": 24,
+        "max_seconds_for_new_requests": 300.0
+      },
+      "original_reported_task_successes": 0,
+      "original_task_success_semantics": "File outcome only in historical scorer; use regraded task_success for end-to-end claims.",
+      "regraded_counts": {
+        "planned_runs": 3,
+        "started_runs": 3,
+        "completed_runs": 0,
+        "incomplete_runs": 3,
+        "task_runs": 3,
+        "task_successes": 0,
+        "file_outcome_successes": 0,
+        "protocol_passes": 2,
+        "full_passes": 0,
+        "physical_model_requests": 3
+      },
+      "observed_request_parameter_set_counts": {
+        "parameters_01": 3
+      },
+      "original_files_checked": 33,
+      "original_directory_tree_sha256_before": "8ddaf8c515edd314c5aa4a5240a0c0cb7a09ba96d093bb353215a745e005b681",
+      "original_directory_tree_sha256_after": "8ddaf8c515edd314c5aa4a5240a0c0cb7a09ba96d093bb353215a745e005b681",
+      "original_unchanged": true,
+      "cases": [
+        {
+          "case_id": "create_note",
+          "repetition": 1,
+          "kind": "task",
+          "runtime_status": "failed",
+          "evaluation_status": "incomplete_infrastructure",
+          "strict_pass": false,
+          "task_success": false,
+          "file_outcome_success": false,
+          "protocol_pass": true,
+          "physical_model_requests": 1,
+          "steps": 1,
+          "elapsed_seconds": 60.125,
+          "error": "Qwen request failed at http://127.0.0.1:11434/v1/ for model qwen3:4b: timed out. Azure fallback is not configured or enabled. Check Ollama, QWEN_BASE_URL and QWEN_MODEL.",
+          "protocol_issues": [],
+          "request_parameter_set_counts": {
+            "parameters_01": 1
+          }
+        },
+        {
+          "case_id": "append_once",
+          "repetition": 1,
+          "kind": "task",
+          "runtime_status": "failed",
+          "evaluation_status": "incomplete_infrastructure",
+          "strict_pass": false,
+          "task_success": false,
+          "file_outcome_success": false,
+          "protocol_pass": false,
+          "physical_model_requests": 1,
+          "steps": 1,
+          "elapsed_seconds": 60.109,
+          "error": "Qwen request failed at http://127.0.0.1:11434/v1/ for model qwen3:4b: timed out. Azure fallback is not configured or enabled. Check Ollama, QWEN_BASE_URL and QWEN_MODEL.",
+          "protocol_issues": [
+            "After-effect interruption was not recovered from saved evidence"
+          ],
+          "request_parameter_set_counts": {
+            "parameters_01": 1
+          }
+        },
+        {
+          "case_id": "copy_then_move",
+          "repetition": 1,
+          "kind": "task",
+          "runtime_status": "failed",
+          "evaluation_status": "incomplete_infrastructure",
+          "strict_pass": false,
+          "task_success": false,
+          "file_outcome_success": false,
+          "protocol_pass": true,
+          "physical_model_requests": 1,
+          "steps": 1,
+          "elapsed_seconds": 60.063,
+          "error": "Qwen request failed at http://127.0.0.1:11434/v1/ for model qwen3:4b: timed out. Azure fallback is not configured or enabled. Check Ollama, QWEN_BASE_URL and QWEN_MODEL.",
+          "protocol_issues": [],
+          "request_parameter_set_counts": {
+            "parameters_01": 1
+          }
+        }
+      ]
+    },
+    {
+      "id": "task-agent-live-final-smoke-20261013",
+      "mode": "live",
+      "final_validation_cohort": false,
+      "original_directory": "work/.test-results/task-agent-live-final-smoke-20261013",
+      "regraded_directory": "work/.test-results/task-agent-live-final-smoke-20261013-regraded",
+      "original_manifest_sha256": "4ec84f4e665f0c360c55fb8148b89cf86931f508e78cb479d4dbf66b144f0b74",
+      "original_summary_sha256": "d7cbbe76abd0eda05d26d838f867e60b8c52ca18fe772d46c23aba258d279795",
+      "regrade_manifest_sha256": "ba9f58fb0799c6ee7aa3d11143e4e34758ab6418c4cfb1bbc21a01386ff97ed1",
+      "regrade_summary_sha256": "5867489f23612eb0bf667848c163289b90ae19ff950dc7c2506b29422992fd36",
+      "original_code_sha256": {
+        "evals/task_agent_eval.py": "b9e953d48b7c60d08c486b0db6d06fc807599ccecfa5e8c902868421c8475ccb",
+        "src/task_agent/__init__.py": "29e40f71f3916165324bee069a7c17669e53a14aaac47ff5a726a12da18b87e3",
+        "src/task_agent/cli.py": "1e6ff8a11bdde039c3b83854321aa9ce78a7b32b97e325d2c31cd470b0134c57",
+        "src/task_agent/planner.py": "a4f1af3c9a499acf7b16ebcd3023a3f04c76edb588a99b06231d86c6a68b213f",
+        "src/task_agent/runtime.py": "f5daf6165e1a87505ab1a165c5e48670f406bef37772d27617aa80843532d833",
+        "src/task_agent/store.py": "6842ad44447297a18f79f0d83e01ead8fb29b0ba7021660120132e8b6e4d4ca5",
+        "src/task_agent/tools.py": "9751df787517b3c5a1a301168a4ea8c139376568d5c6b484470317ee8d17f322",
+        "src/task_agent/web.py": "d7dcbb031def59acdbf846ae34744ea20ce94d307bebf08703c2dde785e7da6a",
+        "src/chat.py": "ccbd41e96b1a92d88130ad1e545d5ffd4aaefe8b1806d9de4754f2c8647bf6da",
+        "src/model_budget.py": "355901122d1a40cfbeab85b28049265fd5ed47d49f45152a866128eb7fbd607a",
+        "src/model_telemetry.py": "6d04fee109bbb0ffb3b0c042c50b6bc7319f1b57829e194e3f77277084cfaded"
+      },
+      "original_dataset_sha256": "72289f8e0da0f1387079794c6368b913963ac2bb83c9fe57819f07ffec4528a9",
+      "model_metadata": {
+        "status": "observed",
+        "source": "loopback /api/tags",
+        "model": "qwen3:4b",
+        "name": "qwen3:4b",
+        "digest": "359d7dd4bcdab3d86b87d73ac27966f4dbb9f5efdfcc75d34a8764a09474fae7",
+        "size": 2497293931,
+        "modified_at": "2026-10-05T01:44:25.5172459+08:00",
+        "details": {
+          "parent_model": "",
+          "format": "gguf",
+          "family": "qwen3",
+          "families": [
+            "qwen3"
+          ],
+          "parameter_size": "4.0B",
+          "quantization_level": "Q4_K_M",
+          "context_length": 262144,
+          "embedding_length": 2560,
+          "runner": "ggml"
+        }
+      },
+      "declared_limits": {
+        "max_steps_per_task": 6,
+        "max_physical_requests": 6,
+        "max_seconds_for_new_requests": 180.0
+      },
+      "original_reported_task_successes": 0,
+      "original_task_success_semantics": "File outcome only in historical scorer; use regraded task_success for end-to-end claims.",
+      "regraded_counts": {
+        "planned_runs": 1,
+        "started_runs": 1,
+        "completed_runs": 1,
+        "incomplete_runs": 0,
+        "task_runs": 1,
+        "task_successes": 0,
+        "file_outcome_successes": 0,
+        "protocol_passes": 1,
+        "full_passes": 0,
+        "physical_model_requests": 1
+      },
+      "observed_request_parameter_set_counts": {
+        "parameters_02": 1
+      },
+      "original_files_checked": 13,
+      "original_directory_tree_sha256_before": "67fe17c643dc164bbdded3dc43e74d1b2630db419fa0e59aa3398fcb1afdbd6b",
+      "original_directory_tree_sha256_after": "67fe17c643dc164bbdded3dc43e74d1b2630db419fa0e59aa3398fcb1afdbd6b",
+      "original_unchanged": true,
+      "cases": [
+        {
+          "case_id": "create_note",
+          "repetition": 1,
+          "kind": "task",
+          "runtime_status": "failed",
+          "evaluation_status": "completed_fail",
+          "strict_pass": false,
+          "task_success": false,
+          "file_outcome_success": false,
+          "protocol_pass": true,
+          "physical_model_requests": 1,
+          "steps": 1,
+          "elapsed_seconds": 44.407,
+          "error": "The model response reached its token limit before completion.",
+          "protocol_issues": [],
+          "request_parameter_set_counts": {
+            "parameters_02": 1
+          }
+        }
+      ]
+    },
+    {
+      "id": "task-agent-live-schema-20261013",
+      "mode": "live",
+      "final_validation_cohort": true,
+      "original_directory": "work/.test-results/task-agent-live-schema-20261013",
+      "regraded_directory": "work/.test-results/task-agent-live-schema-20261013-regraded",
+      "original_manifest_sha256": "dbf882a5d7ef95a20167cfe30631757e7fd8bfcb0ea8fbdf6cb978de5396d379",
+      "original_summary_sha256": "6ce2c63049296b804909a68c0c08c8935f20b2e3ce5cb86f9bac9e87c56575db",
+      "regrade_manifest_sha256": "e56044d91ab506100f4fdc668007bf5bddd58c38d7a8da104c460b67c71592cb",
+      "regrade_summary_sha256": "2379e75583d86673c08e5748b124f735951517aa65724dc2af0407152fc1d21d",
+      "original_code_sha256": {
+        "evals/task_agent_eval.py": "b9e953d48b7c60d08c486b0db6d06fc807599ccecfa5e8c902868421c8475ccb",
+        "src/task_agent/__init__.py": "29e40f71f3916165324bee069a7c17669e53a14aaac47ff5a726a12da18b87e3",
+        "src/task_agent/cli.py": "1e6ff8a11bdde039c3b83854321aa9ce78a7b32b97e325d2c31cd470b0134c57",
+        "src/task_agent/planner.py": "1f4febe4b1fc869cb9f7a0350bb81d963e41d9c39fd17bf268a12114f5b5e718",
+        "src/task_agent/runtime.py": "f5daf6165e1a87505ab1a165c5e48670f406bef37772d27617aa80843532d833",
+        "src/task_agent/store.py": "6842ad44447297a18f79f0d83e01ead8fb29b0ba7021660120132e8b6e4d4ca5",
+        "src/task_agent/tools.py": "9751df787517b3c5a1a301168a4ea8c139376568d5c6b484470317ee8d17f322",
+        "src/task_agent/web.py": "d7dcbb031def59acdbf846ae34744ea20ce94d307bebf08703c2dde785e7da6a",
+        "src/chat.py": "ccbd41e96b1a92d88130ad1e545d5ffd4aaefe8b1806d9de4754f2c8647bf6da",
+        "src/model_budget.py": "355901122d1a40cfbeab85b28049265fd5ed47d49f45152a866128eb7fbd607a",
+        "src/model_telemetry.py": "6d04fee109bbb0ffb3b0c042c50b6bc7319f1b57829e194e3f77277084cfaded"
+      },
+      "original_dataset_sha256": "72289f8e0da0f1387079794c6368b913963ac2bb83c9fe57819f07ffec4528a9",
+      "model_metadata": {
+        "status": "observed",
+        "source": "loopback /api/tags",
+        "model": "qwen3:4b",
+        "name": "qwen3:4b",
+        "digest": "359d7dd4bcdab3d86b87d73ac27966f4dbb9f5efdfcc75d34a8764a09474fae7",
+        "size": 2497293931,
+        "modified_at": "2026-10-05T01:44:25.5172459+08:00",
+        "details": {
+          "parent_model": "",
+          "format": "gguf",
+          "family": "qwen3",
+          "families": [
+            "qwen3"
+          ],
+          "parameter_size": "4.0B",
+          "quantization_level": "Q4_K_M",
+          "context_length": 262144,
+          "embedding_length": 2560,
+          "runner": "ggml"
+        }
+      },
+      "declared_limits": {
+        "max_steps_per_task": 6,
+        "max_physical_requests": 6,
+        "max_seconds_for_new_requests": 180.0
+      },
+      "original_reported_task_successes": 1,
+      "original_task_success_semantics": "File outcome only in historical scorer; use regraded task_success for end-to-end claims.",
+      "regraded_counts": {
+        "planned_runs": 1,
+        "started_runs": 1,
+        "completed_runs": 1,
+        "incomplete_runs": 0,
+        "task_runs": 1,
+        "task_successes": 1,
+        "file_outcome_successes": 1,
+        "protocol_passes": 1,
+        "full_passes": 1,
+        "physical_model_requests": 5
+      },
+      "observed_request_parameter_set_counts": {
+        "parameters_03": 5
+      },
+      "original_files_checked": 14,
+      "original_directory_tree_sha256_before": "640a5566116b79aeaec5bd3c2dbde9fb053e1507306283c5e567c92ec6fc31b5",
+      "original_directory_tree_sha256_after": "640a5566116b79aeaec5bd3c2dbde9fb053e1507306283c5e567c92ec6fc31b5",
+      "original_unchanged": true,
+      "cases": [
+        {
+          "case_id": "create_note",
+          "repetition": 1,
+          "kind": "task",
+          "runtime_status": "succeeded",
+          "evaluation_status": "completed_pass",
+          "strict_pass": true,
+          "task_success": true,
+          "file_outcome_success": true,
+          "protocol_pass": true,
+          "physical_model_requests": 5,
+          "steps": 5,
+          "elapsed_seconds": 35.031,
+          "error": "",
+          "protocol_issues": [],
+          "request_parameter_set_counts": {
+            "parameters_03": 5
+          }
+        }
+      ]
+    },
+    {
+      "id": "task-agent-live-schema-recovery-20261013",
+      "mode": "live",
+      "final_validation_cohort": true,
+      "original_directory": "work/.test-results/task-agent-live-schema-recovery-20261013",
+      "regraded_directory": "work/.test-results/task-agent-live-schema-recovery-20261013-regraded",
+      "original_manifest_sha256": "29358cbb360f0b1216e634ad345d8d565c5ee11eb03380d7807385b8da9f4074",
+      "original_summary_sha256": "8cc6db7e11970b53363f5b83c6005d4ede4cdbad305c1a03b680b8f8dc851c87",
+      "regrade_manifest_sha256": "7b92c6711ef91432936aa59dcc42e4d573f428f084800f01fddfe2882609e65b",
+      "regrade_summary_sha256": "9125e6e220954bdd735590188ea2792df161b9611c443e30cd8b75d25d21b9bc",
+      "original_code_sha256": {
+        "evals/task_agent_eval.py": "b9e953d48b7c60d08c486b0db6d06fc807599ccecfa5e8c902868421c8475ccb",
+        "src/task_agent/__init__.py": "29e40f71f3916165324bee069a7c17669e53a14aaac47ff5a726a12da18b87e3",
+        "src/task_agent/cli.py": "1e6ff8a11bdde039c3b83854321aa9ce78a7b32b97e325d2c31cd470b0134c57",
+        "src/task_agent/planner.py": "1f4febe4b1fc869cb9f7a0350bb81d963e41d9c39fd17bf268a12114f5b5e718",
+        "src/task_agent/runtime.py": "f5daf6165e1a87505ab1a165c5e48670f406bef37772d27617aa80843532d833",
+        "src/task_agent/store.py": "6842ad44447297a18f79f0d83e01ead8fb29b0ba7021660120132e8b6e4d4ca5",
+        "src/task_agent/tools.py": "9751df787517b3c5a1a301168a4ea8c139376568d5c6b484470317ee8d17f322",
+        "src/task_agent/web.py": "d7dcbb031def59acdbf846ae34744ea20ce94d307bebf08703c2dde785e7da6a",
+        "src/chat.py": "ccbd41e96b1a92d88130ad1e545d5ffd4aaefe8b1806d9de4754f2c8647bf6da",
+        "src/model_budget.py": "355901122d1a40cfbeab85b28049265fd5ed47d49f45152a866128eb7fbd607a",
+        "src/model_telemetry.py": "6d04fee109bbb0ffb3b0c042c50b6bc7319f1b57829e194e3f77277084cfaded"
+      },
+      "original_dataset_sha256": "72289f8e0da0f1387079794c6368b913963ac2bb83c9fe57819f07ffec4528a9",
+      "model_metadata": {
+        "status": "observed",
+        "source": "loopback /api/tags",
+        "model": "qwen3:4b",
+        "name": "qwen3:4b",
+        "digest": "359d7dd4bcdab3d86b87d73ac27966f4dbb9f5efdfcc75d34a8764a09474fae7",
+        "size": 2497293931,
+        "modified_at": "2026-10-05T01:44:25.5172459+08:00",
+        "details": {
+          "parent_model": "",
+          "format": "gguf",
+          "family": "qwen3",
+          "families": [
+            "qwen3"
+          ],
+          "parameter_size": "4.0B",
+          "quantization_level": "Q4_K_M",
+          "context_length": 262144,
+          "embedding_length": 2560,
+          "runner": "ggml"
+        }
+      },
+      "declared_limits": {
+        "max_steps_per_task": 8,
+        "max_physical_requests": 16,
+        "max_seconds_for_new_requests": 300.0
+      },
+      "original_reported_task_successes": 2,
+      "original_task_success_semantics": "File outcome only in historical scorer; use regraded task_success for end-to-end claims.",
+      "regraded_counts": {
+        "planned_runs": 2,
+        "started_runs": 2,
+        "completed_runs": 2,
+        "incomplete_runs": 0,
+        "task_runs": 2,
+        "task_successes": 2,
+        "file_outcome_successes": 2,
+        "protocol_passes": 2,
+        "full_passes": 2,
+        "physical_model_requests": 8
+      },
+      "observed_request_parameter_set_counts": {
+        "parameters_03": 8
+      },
+      "original_files_checked": 25,
+      "original_directory_tree_sha256_before": "3105af2142b63e9f632e168836311254fb5583ae52c249e7d2e07e0debbe894d",
+      "original_directory_tree_sha256_after": "3105af2142b63e9f632e168836311254fb5583ae52c249e7d2e07e0debbe894d",
+      "original_unchanged": true,
+      "cases": [
+        {
+          "case_id": "append_once",
+          "repetition": 1,
+          "kind": "task",
+          "runtime_status": "succeeded",
+          "evaluation_status": "completed_pass",
+          "strict_pass": true,
+          "task_success": true,
+          "file_outcome_success": true,
+          "protocol_pass": true,
+          "physical_model_requests": 4,
+          "steps": 4,
+          "elapsed_seconds": 29.0,
+          "error": "",
+          "protocol_issues": [],
+          "request_parameter_set_counts": {
+            "parameters_03": 4
+          }
+        },
+        {
+          "case_id": "copy_then_move",
+          "repetition": 1,
+          "kind": "task",
+          "runtime_status": "succeeded",
+          "evaluation_status": "completed_pass",
+          "strict_pass": true,
+          "task_success": true,
+          "file_outcome_success": true,
+          "protocol_pass": true,
+          "physical_model_requests": 4,
+          "steps": 4,
+          "elapsed_seconds": 37.672,
+          "error": "",
+          "protocol_issues": [],
+          "request_parameter_set_counts": {
+            "parameters_03": 4
+          }
+        }
+      ]
+    }
+  ],
+  "repository_regression_validation": {
+    "source": "Root agent final full-repository regression execution report",
+    "tests_run": 622,
+    "passed": 619,
+    "skipped": 3,
+    "failures": 0,
+    "errors": 0,
+    "elapsed_seconds": 78.885,
+    "exit_code": 0,
+    "reported_result": "OK (skipped=3)",
+    "includes_task_agent_evaluator_tests": true,
+    "interpretation": "Repository regression checks; separate from scripted protocol results and real-model task outcomes."
+  }
+}

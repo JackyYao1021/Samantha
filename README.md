@@ -1,212 +1,263 @@
-# track1_nottingDuck
+# Samantha
 
-## Durable workspace Agent and local console
+<p>
+  <a href="./README.md"><img src="readme_help/assets/language-en.svg" alt="English" width="112" height="32"></a>
+  <a href="./README.zh-CN.md"><img src="readme_help/assets/language-zh.svg" alt="简体中文" width="112" height="32"></a>
+</p>
 
-The new `samantha agent` mode selects bounded file tools from their results,
-persists tasks and approvals in SQLite, verifies actual file outcomes, and
-reconciles interrupted actions before resuming. A local Chinese web console
-shows task progress, exact change approvals, file verification, and follow-up
-tasks. The original Bash/LangGraph command entry point remains available.
+**A local file-task agent and natural-language system assistant**
 
-```powershell
-# From the repository root, using the existing environment:
-.\.venv\Scripts\python.exe work/src/samantha.py serve
-# Open http://127.0.0.1:8765
+Samantha uses local models to complete file tasks: it chooses the next tool from observed results, asks for approval before changes, verifies actual file outcomes, and persists task state for recovery after interruptions. Use the local web console or CLI, or continue using the original LangGraph-based natural-language Bash workflow.
+
+[Quick start](#quick-start) · [Architecture](#architecture) · [Examples](#examples) · [Validation](#validation) · [Documentation](#documentation)
+
+## Capabilities
+
+| What you want to do | Current support | Entry point |
+| --- | --- | --- |
+| Manage workspace files | List, read, search, create, append, copy and move files; create directories | Web console / `samantha agent` |
+| Review and resume tasks | Inspect exact changes, approve each action, answer clarifications, stop tasks and reconcile interrupted actions | Web console / `samantha agent resume` |
+| Continue a previous file task | Explicitly link a parent task and reuse verified action evidence; approve new changes separately | Web follow-up action / `--parent-id` |
+| Find information by content | Text, DOCX, PDF and image understanding, semantic search, metadata filters and answers with sources | `samantha content` |
+| Operate Linux through natural language | Clarification, command generation, independent model review, human approval and bounded correction | `samantha "request"` |
+| Inspect history and file objects | Persistent interaction logs; optional history recall and verified file-object tracking | `samantha history` / `samantha entities` |
+
+The file-task agent uses bounded tools inside a workspace. The Bash workflow handles Linux / openEuler command tasks. Their state, tool scope and recovery capabilities are described separately below.
+
+## Quick start
+
+Run the following commands from the repository root. Start **Ollama** on the host; Samantha defaults to **`qwen3:4b`**. If the model is not installed yet:
+
+```bash
+ollama pull qwen3:4b
 ```
 
-To run the web console in Docker (openEuler):
+### Docker / openEuler
 
-```powershell
+With Docker Compose available, the Docker engine running and Ollama running on the host, start the console:
+
+```bash
 docker compose up -d --build oe
-# Open http://127.0.0.1:8765
-docker compose logs -f oe
 ```
 
-Compose starts the console on all container interfaces and publishes port 8765
-only on the host's loopback address. Task data and files persist through the
-existing `./work:/work` mount. Ollama runs on the host; the default container
-model endpoint is `http://host.docker.internal:11434/v1`. If `.env` overrides
-`QWEN_BASE_URL`, use an address reachable from the container.
-For an interactive container shell, run `docker compose exec oe bash`.
-Stop the service with `docker compose stop oe`.
+Open **<http://127.0.0.1:8765>**. The container runs openEuler. Task databases and files persist through the `./work:/work` bind mount.
 
-Default task files live in `work/.samantha/workspace`. See the
-[durable task Agent guide](readme_help/durable_task_agent.md) for tool contracts,
-CLI commands, recovery semantics, local UI, executable task evaluations, and
-the distinction between scripted protocol checks and real-model results.
+```bash
+docker compose logs -f oe     # View service logs
+docker compose exec oe bash  # Open a shell with the samantha command
+docker compose stop oe       # Stop the service and retain task data
+```
 
-## Team members
+The container connects to the host model at `http://host.docker.internal:11434/v1` by default. If an existing `.env` or environment variable overrides `QWEN_BASE_URL`, use an address reachable from the container: `127.0.0.1` inside the container refers to the container itself. See the [setup guide](readme_help/how_to_use_Samantha.md) for connection troubleshooting.
 
-We are a team called *NottingDuck* with following three members:
+### Local Python
+
+Requires **Python 3.10+**. The web console and file-task CLI can run on Windows; the original Bash workflow requires Linux / Bash. Skip environment creation and dependency installation if you already have them.
+
+<details>
+<summary>Windows / PowerShell</summary>
+
+```powershell
+python -m venv .venv
+.\.venv\Scripts\python.exe -m pip install -r work/requirements.txt
+$env:QWEN_API_MODE = "ollama"
+.\.venv\Scripts\python.exe work/src/samantha.py serve
+```
+
+</details>
+
+<details>
+<summary>Linux / openEuler / Bash</summary>
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+python3 -m pip install -r work/requirements.txt
+export QWEN_API_MODE=ollama
+python3 work/src/samantha.py serve
+```
+
+</details>
+
+Open **<http://127.0.0.1:8765>**. The console currently has a Chinese interface and requires no Node.js or frontend build. The default host model endpoint is `http://127.0.0.1:11434/v1`; the examples explicitly select Ollama's native API, matching Compose.
+
+| Default location | Purpose |
+| --- | --- |
+| `work/.samantha/workspace/` | Files managed through the web console |
+| `work/.samantha/tasks.sqlite3` | File tasks, actions, approvals and events |
+
+Use `serve --workspace <directory>` to choose a workspace and `SAMANTHA_TASK_DB` to choose a database. Unlike the console, `agent run` defaults to the current working directory; pass `--workspace` explicitly. See [`.env.example`](.env.example) for configuration and the [file-task agent guide](readme_help/durable_task_agent.md) for more commands.
+
+The console binds to loopback by default, and Compose publishes its port only on the host's loopback interface. It has no login authentication and is intended for local use.
+
+## Architecture
+
+The system has two independent execution paths, alongside content retrieval, history and evaluation modules. **The file-task agent uses an application state machine and SQLite; the original shell workflow uses LangGraph.**
+
+```mermaid
+flowchart TB
+    subgraph task["File-task agent"]
+        ui["Web console / agent CLI"] --> runtime["AgentRuntime · Persistent task state"]
+        runtime <--> planner["Local Qwen · Next-tool decision"]
+        runtime --> tools["Bounded tools · Approval · Verification"]
+        tools --> files["Task workspace"]
+        tools -->|Observations and verified outcomes| runtime
+        runtime <--> tasksdb[("SQLite · Tasks and action evidence")]
+    end
+    subgraph shell["Bash workflow"]
+        request["samantha natural-language request"] --> workflow["LangGraph · Clarify, generate, review, approve, correct"]
+        workflow --> bash["Bash executor"]
+        workflow --> journal[("SQLite · Interaction journal")]
+        memory["Optional history recall / Object tracking"] -.-> workflow
+    end
+    subgraph content["Content retrieval"]
+        contentcli["content CLI · Index, search, ask"] --> pipeline["Text extraction / Qwen2.5-VL · BGE-M3"]
+        pipeline <--> qdrant[("Qdrant · Persistent content index")]
+    end
+    tools -.->|search_content · Existing Ollama dense index| qdrant
+    evals["Independent evaluation · File outcomes, protocols, frozen evidence, telemetry"] -.-> runtime
+    evals -.-> workflow
+```
+
+### File tasks: choose, approve, execute, verify, continue
+
+On each turn, the model selects one tool, asks for clarification or reports completion. The runtime validates the structure and arguments and feeds tool results back to the model. Each write is bound to an exact action and the file's prior state, requires approval, and is followed by checks of actual bytes, hashes and paths.
+
+SQLite preserves task and action state. After a restart, use the console's resume action or `agent resume`: effects already applied and verified are recorded without repeating an append. Partial effects or conflicting file changes cause a stop with evidence retained. Restarting the service does not automatically replay tasks, and a later failure does not roll back completed operations.
+
+The web console, CLI and task evaluations share [`AgentRuntime`](work/src/task_agent/runtime.py). See the [file-task agent guide](readme_help/durable_task_agent.md) for tool contracts and recovery semantics.
+
+### Bash workflow: fixed roles and conditional routing
+
+The original path follows clarification → intent parsing → command generation → independent review → human approval → Bash execution. Failures allow up to three corrections; every new command sequence is reviewed and approved again.
+
+LangGraph checkpoints currently live in process memory. SQLite interaction logs survive restarts but do not resume the graph. `history` reads the interaction journal, while `agent show` reads new task state; these records cannot be converted into each other's resumable tasks. History recall and object tracking are optional features of the original path. New agent follow-ups use explicit parent-task evidence. See the [LangGraph workflow guide](readme_help/langgraph_workflow.md).
+
+### Content retrieval: explicit indexing and task integration
+
+The pipeline is text extraction / Qwen2.5-VL visual understanding → chunks, summaries and tags → BGE-M3 → Qdrant → retrieval / answers with sources. The standalone CLI supports FlagEmbedding dense+sparse hybrid retrieval and Ollama dense retrieval.
+
+The file-task agent's `search_content` currently queries **an existing Ollama dense index**, filters results to its workspace, and does not automatically index files or download models. Filename and text searches use `search_files` without a vector index. See the [content search guide](readme_help/content_search.md) for installation and backend selection.
+
+## Examples
+
+### Complete your first task in the console
+
+1. Enter: "Create notes.txt containing alpha followed by a newline."
+2. Inspect the pending action's path and exact content, approve it, then check the file verification result.
+3. Once the task ends, click **继续这个话题** (continue this topic) and enter: "Append beta followed by a newline to the file we just created."
+4. Approve the append and inspect the output. Follow-ups inherit verified evidence; each new change needs fresh approval.
+
+### Run and resume from the CLI
+
+Run this Bash example from the repository root with your Python environment activated. On Windows, create the workspace directory first and replace `python3` with `.\.venv\Scripts\python.exe`.
+
+```bash
+mkdir -p work/.samantha/workspace
+python3 work/src/samantha.py agent run "Create notes.txt containing hello" --workspace work/.samantha/workspace --interactive
+
+python3 work/src/samantha.py agent list
+python3 work/src/samantha.py agent show TASK_ID
+python3 work/src/samantha.py agent resume TASK_ID --interactive
+```
+
+Replace `TASK_ID` with an actual task ID. Without `--interactive`, a task returns persisted state as JSON when it needs clarification or approval; continue with `agent answer` or `agent approve`.
+
+### Content search and the original terminal entry point
+
+This example uses Linux / Bash. First prepare the vision model and embedding backend using the [content search guide](readme_help/content_search.md). Here, `./documents` is an existing directory of source files.
+
+```bash
+source work/samantha.sh
+
+samantha content doctor
+samantha content index ./documents
+samantha content search "contract payment terms"
+samantha content ask "When is payment due under the contract?"
+
+samantha "List Markdown files in the current directory"
+samantha history list
+```
+
+`history` supports inspection and export of interaction logs. With object tracking enabled, `samantha entities` lists saved file objects. See [interaction logging](readme_help/interaction_logging.md) and [object tracking](readme_help/object_tracking.md).
+
+## Validation
+
+These results come from the **saved validation record dated 2026-10-13**. Each layer answers a different question.
+
+| Validation layer | Recorded result | Scope |
+| --- | --- | --- |
+| Full Windows regression suite | 622 tests: 619 passed, 3 skipped | Code, protocols, budgets, recovery and HTTP integration |
+| Scripted planner with real file tools | 10 scenarios run twice; 20/20 passed; 0 model requests | 14 file-task runs and 6 rejection, conflict or workspace-boundary protocol checks |
+| Final local Qwen3 4B acceptance | 3/3 passed; 13 physical model requests | File creation, interrupted append recovery, and copy-then-move; public development tasks |
+
+The live acceptance run covers only three development tasks and is not a general task-success estimate. Earlier failures, timeouts and truncated-output attempts are also preserved, bringing the historical experiment total to 29 model requests. File outcomes and complete task success are scored separately: the runtime's `succeeded` status alone does not independently establish that the whole user goal was met.
+
+See the [validation record and failure analysis](readme_help/task_agent_validation_20261013.md) and the [committed validation summary](work/evals/results/task_agent_validation_20261013.json). Full raw artifacts live under the Git-ignored `work/.test-results/` and are not included in a clone. That validation included HTTP integration tests, but not browser clicks or visual acceptance, and did not verify a remote Linux CI run.
+
+A separate [local model routing experiment](readme_help/model_routing_results_20261012.md) compares five strategies on 12 held-out tasks, for 60 held-out attempts. It is a bounded-tool experiment, has not established a quality benefit from intelligent model selection, and is not connected to the default task execution path.
+
+### Run offline checks
+
+After installing the base dependencies, run from the repository root:
+
+```bash
+python3 -m unittest discover -s work/tests -p 'test_*.py' -q
+
+# Scripted planner and real file tools in fresh isolated fixtures; no model calls.
+cd work
+python3 -m evals.task_agent_eval --repeats 2
+```
+
+On Windows, use the virtual environment's Python; after entering `work`, its relative path is `..\.venv\Scripts\python.exe`. Live task evaluation requires the explicit `--live` flag; see the [task evaluation guide](readme_help/durable_task_agent.md#任务级评测) for commands and budgets. The [offline CI configuration](.github/workflows/offline-eval.yml) isolates external networking after dependency installation, retaining loopback for local HTTP tests.
+
+## Repository layout
+
+```text
+work/
+├── src/
+│   ├── samantha.py          # CLI entry point and original terminal adapter
+│   ├── task_agent/          # Runtime, tools, planner, SQLite, web and static UI
+│   ├── workflow.py          # LangGraph command workflow
+│   ├── content_search/      # Extraction, models, indexing and retrieval
+│   ├── agent_memory/        # Optional history recall backends
+│   ├── object_tracking/     # Verified file objects and cross-invocation references
+│   ├── interaction_log.py   # Persistent interaction journal
+│   ├── observability/       # Events, redaction and optional export
+│   └── prompts/             # Versioned prompt registry
+├── evals/                   # Task evaluation, routing experiments and saved summaries
+└── tests/                   # Regression tests and real-task acceptance tools
+readme_help/                 # Guides, validation records and historical demos
+```
+
+## Documentation
+
+The README is available in English and [Simplified Chinese](README.zh-CN.md). Detailed guides retain their original languages; several are currently in Chinese.
+
+| Topic | Guide |
+| --- | --- |
+| File tasks and console | [Tools, approvals, recovery, CLI and task evaluation](readme_help/durable_task_agent.md) |
+| Setup and terminal use | [Linux / openEuler setup and model connections](readme_help/how_to_use_Samantha.md) · [Shell function](readme_help/use_shell_function.md) |
+| Bash workflow | [LangGraph state, routing and independent command review](readme_help/langgraph_workflow.md) |
+| Content search | [Models, hybrid / dense modes and index configuration](readme_help/content_search.md) |
+| History and memory | [Interaction logging](readme_help/interaction_logging.md) · [History recall experiments](readme_help/memory_experiments.md) · [Object tracking](readme_help/object_tracking.md) |
+| Task acceptance | [Latest agent validation](readme_help/task_agent_validation_20261013.md) · [Original 25-task acceptance protocol](readme_help/real_task_evaluation.md) |
+| Evaluation system | [Frozen evidence, scoring, regrading and observability](readme_help/evaluation_system.md) |
+| Model routing | [Experiment protocol](readme_help/model_routing_experiments.md) · [2026-10-12 results and scope](readme_help/model_routing_results_20261012.md) |
+| Future design and project history | [Small-model multi-turn plan](readme_help/small_model_multiturn_plan.md) · [Early terminal demos](readme_help/legacy_demo.md) |
+
+## Limitations and roadmap
+
+- **Tool scope:** The file-task agent has no general Bash or deletion tool. Files are currently limited to 1 MiB, and text reads return at most 32 KiB. Path restrictions and approvals are application-level controls, not an OS sandbox.
+- **Recovery scope:** The new agent reconciles interrupted actions but does not provide cross-file transactions or automatic rollback. Cross-process recovery for the original Bash workflow remains future work. Use one task service and database per workspace.
+- **Models and context:** Current acceptance coverage is small; longer tasks, multi-turn context and independent held-out evaluations need further work. History recall, file-object records and parent-task evidence have separate scopes and do not yet form a unified long-term memory.
+- **Retrieval and synchronization:** Persistent Qdrant retrieval is implemented. Automatic index updates after file moves or deletions, and visual-similarity embeddings, remain extensions.
+- **Integration validation:** Browser interaction, cross-platform behavior and optional Langfuse / Inspect integrations need further live validation. Offline mocks do not replace external-service acceptance tests.
+
+## Team and project background
+
+Samantha began as NottingDuck's natural-language terminal assistant for openEuler (`track1_nottingDuck`) and has expanded into content retrieval, durable file tasks and an evaluation system. Early Tier 1/2/3 screenshots and design diagrams are preserved in the [historical demos](readme_help/legacy_demo.md). This page and the linked guides describe the current implementation.
 
 - [Shuli Wang](https://github.com/NingShuZhu)
 - [Yujie Yao](https://github.com/JackyYao1021)
 - [Ningbo Wei](https://github.com/NingboWEI)
-
-##  📖 User Guide
-
-Please go to [how_to_use_Samantha](readme_help/how_to_use_Samantha.md) for detailed guidance :)
-
-## Project description
-
-### 1. 📌 Project Overview
-
-**Samantha** is a natural language powered assistant that helps you interact with your system more easily.  
-It can be used in your terminal on **openEuler** (and other Linux systems), which will translate natural language into executable commands, and execute them.
-
-The current default model is the host's **Ollama `qwen3:4b`**. Direct host
-execution connects to `127.0.0.1:11434`; Docker Compose connects to
-`host.docker.internal:11434`. Azure fallback must be explicitly enabled.
-
-### 2. 🏗️ System Architecture
-
-The original `samantha <request>` mode uses a fixed workflow with separate LLM roles for clarification,
-intent parsing, command generation, review, and bounded correction. Conditional
-routing and human approval govern execution; this does not imply open-ended
-autonomous planning or dynamic tool selection.
-
-The new `samantha agent` mode uses a separate durable tool-selection loop and
-SQLite state; its execution and recovery contracts are described in the guide above.
-
-The workflow is now orchestrated by **LangGraph**. `work/src/workflow.py` defines
-typed state, conditional routing, clarification/approval interrupts, and the
-bounded correction loop. Existing agent prompts and the `samantha <request>`
-terminal entry point are retained. See [the LangGraph workflow guide](readme_help/langgraph_workflow.md)
-for the graph, state lifecycle, tests, and current limitations.
-
-For real-model acceptance testing, see [the real task evaluation guide](readme_help/real_task_evaluation.md).
-It includes 25 Chinese tasks with isolated fixtures, expected outcomes,
-interaction requirements, and checks against exported execution logs.
-The dedicated `docker-compose.tests.yaml` provides offline checks and an
-interactive real-task lab; Windows can use `work/tests/docker_real_tasks.ps1`.
-
-The [local model routing experiment](readme_help/model_routing_experiments.md)
-adds a separate development/heldout bounded-tool benchmark, capability profiles,
-fixed-model controls, rule/embedding/model-classifier routing, actual request
-telemetry, and saved-only audits. It uses installed local models with explicit
-budgets; its exploratory results do not imply production routing or arbitrary
-Bash end-to-end accuracy.
-
-The [evaluation pipeline](readme_help/evaluation_system.md) preserves the P0
-contracts, frozen artifacts, file outcome checks, offline regrading, and physical
-model-call telemetry. P1 adds linked events, versioned prompts, recursive privacy
-filtering, optional Langfuse export, and network-isolated CI. P2/P3 add bounded
-fault fixtures, saved-trajectory recovery analysis, evidence/QA/OCR rules,
-human judge-calibration imports, paired episode statistics, an optional Inspect
-adapter, and a focused partial-effect recovery study. Default runs use Fake
-Services; local model proposal checks require an explicit option and deny command
-execution. Offline validation, actual model evidence, and pending external-service
-or human validation are documented separately. These checks do not establish
-arbitrary Bash sandboxing or real-model end-to-end task accuracy.
-
-![Overall system design](readme_help/Group_10.png)
-
-- **Agent-0 – Request Completeness Checker:**  
-  Validates whether the user’s natural language request is clear and executable. If key information is missing, it asks clarifying questions.
-
-- **Agent-1 – User Intent Parser:**  
-  Breaks the clarified request into structured steps in natural language, clearly defining what actions need to be performed step by step.
-
-- **Agent-2 – Shell Command Generator:**  
-  Converts these steps into robust and executable shell commands tailored for the openEuler environment.
-
-- **Agent-3 – Independent Command Reviewer:**
-  Uses local Qwen to assess the exact commands against the user request, plan,
-  working directory, and previous error. It returns a plain-language assessment,
-  effects, problems, unknowns, and recommendation. A separate human confirmation
-  node authorizes execution; every corrected command sequence is reviewed again.
-
-- **Agent-e – Error Correction Agent:**  
-  Monitors execution results. If a command fails, it analyzes the error, adjusts the plan, and sends the updated result back to Agent-2 to automatically regenerate commands and retry execution.
-
-In addition, we designed an **efficient interaction mechanism**: after setting up _(simply using `source /work/setup.sh`)_, users can directly invoke **Samantha** in the terminal simply by typing `samantha` followed by their request, without needing to manually run a script each time.
-
-![efficient interaction](readme_help/simple.png)
-
-### 3. ✅ Current Implementation & Results
-
-Our current version of **Samantha** successfully implements all core features from **Tier 1** and **Tier 2**, as well as several features in **Tier 3**, providing a robust and intelligent natural language interface for the openEuler terminal.
-
-![efficient interaction](readme_help/overall_progress.png)
-
-#### 🧰 Tier 1 – Basic File Operations  
-- ✅ **Navigation:** change directories and list files using natural language.  
-- ✅ **Creation:** create new files and directories.  
-- ✅ **Basic manipulation:** copy, move, and rename files or directories.  
-- ✅ **Simple search:** find files or directories by exact name.  
-- ✅ **User feedback:** provide clear confirmation of actions or error messages.  
-- ✅ **Safety mechanism:** confirmation required for destructive operations (e.g., delete).
-![Safety mechanism](readme_help/t1_safty.png)  
-*Figure：Safety mechanism - Ask user if to permanently delete a file.*
-
-#### ⚙️ Tier 2 – Enhanced Intelligence  
-
-- ✅ **Advanced search and filtering** by type, extension, size, or modification date.  
-![efficient interaction](readme_help/t2_example.png)  
-*Figure：example of Advance search - file filtering by size.*
-- ✅ **Context awareness:** understands relative paths and context implicitly.  
-- ✅ **Basic multi-step operations:** handles sequences of actions in a single request.  
-- ✅ **Robust error handling:** gracefully handles invalid paths, permission issues, and missing files.
-![Robust error handling](readme_help/t2_error_handling.png)  
-*Figure：example of Robust error handling - create a file in non-exist folder.*
-
-
-#### 🚧 Tier 3 – More advanced  
-
-- ✅ **Content-Aware Search:**  able to search for files ontaining specific keywords. 
-![keyword search](readme_help/t3_example1.png)
-*Figure：example of keyword search - find all the files include "openai".*
-- ✅ **Self-Correction:** when an error is encounter, Samantha will try different approaches to achieve the goal. (Up to _three_ self-correction attempts will be tried)
-![keyword search](readme_help/t3_example_sc.png)
-*Figure：example of self correction.*
-- ✅ **Natural Conversation Flow:** Samantha can handle follow-up questions and clarifications. In case the request is not clear, she will ask for clarification until she exactly get your point. If during the conversion you don't want her to execute the request anymore, she will simply do nothing and exit.
-![keyword search](readme_help/t3_example2.png)
-*Figure：example of asking for clarification.*
-
-Durable interaction logging now records every user turn, terminal response,
-workflow operation, approval, execution result, error, and retry in SQLite.
-Model API reasoning (`thinking`, `reasoning_content`, `reasoning`, or a leading
-`<think>` block) is stored separately when returned, with its agent operation,
-model, and completion status. Model thinking settings are unchanged.
-Use `samantha history list`, `samantha history show latest`, or
-`samantha history export latest --output session.json`. See
-[the interaction logging guide](readme_help/interaction_logging.md) for storage,
-event format, exports, and verification. The memory experiment branch adds
-opt-in cross-invocation raw-history recall (`none`, `recent`, `bm25`) behind a
-replaceable adapter, a LongMemEval runner, and interactive terminal memory tasks.
-See [memory experiments](readme_help/memory_experiments.md) for the evaluation
-protocol and extension boundary. Structured organizational intelligence remains
-future work.
-
-Opt-in P0 file object tracking now persists verified create, rename, and append
-evidence across CLI calls, with a stable user/project scope and fresh approval
-for every action. Use `samantha entities` to inspect all saved objects, or
-`samantha entities --project my-project --status active --json` to filter them.
-The command reads the object database without model calls or file revalidation.
-See [object tracking](readme_help/object_tracking.md) for setup,
-strict command contracts, failure behavior, offline cross-process tests, and the
-real-model proposal probe. Live model task success remains to be validated.
-
-### File and Image Content Search
-
-The content pipeline now supports native text, DOCX, PDF pages, and images:
-Qwen2.5-VL generates descriptions/OCR, summaries, and tags; BGE-M3 encodes the
-content; Qdrant provides persistent retrieval and metadata filtering. Use
-`samantha content index <path>`, `samantha content search <query>`, and
-`samantha content ask <question>`. Run `samantha content doctor` to check models.
-See [the content search guide](readme_help/content_search.md) for installation,
-hybrid versus Ollama dense mode, configuration, and limitations.
-
-## 🚀 Future Work
-
-Although our current implementation focuses on Tier 1 and Tier 2 functionality, we have laid a solid foundation for future development towards these Tier 3 and more advanced intelligent capabilities.
-
-The following extensions are planned:
-
-![Future Architecture](readme_help/Group_12.png)
-*Figure：Architecture for the future development*
-
-- **Persistent checkpoints and memory:** Durable interaction logs and opt-in raw-history memory baselines are implemented. The graph still keeps checkpoints in memory for one process; cross-process workflow resume, extracted facts, and learned memory policies remain future work.
-- **Vector database:** Qdrant-backed content search is implemented. Automated deletion/move synchronization and visual-similarity embeddings are future extensions.
-- **External tools:** LangGraph orchestration is implemented. Additional tools beyond the Bash executor can be introduced through dedicated nodes.
-

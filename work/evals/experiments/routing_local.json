@@ -1,0 +1,13 @@
+{
+  "schema_version": "routing-run-v1",
+  "models": ["qwen3:4b", "qwen2.5vl:7b"],
+  "embedding_model": "bge-m3:latest",
+  "policies": ["fixed_a", "fixed_b", "rule", "embedding", "model_driven"],
+  "repeats": 1,
+  "seed": 17,
+  "max_calls": 130,
+  "max_seconds": 900,
+  "request_timeout_seconds": 35,
+  "max_output_tokens": 768,
+  "fallback": true
+}

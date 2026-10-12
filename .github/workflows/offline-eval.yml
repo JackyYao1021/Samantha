@@ -29,8 +29,10 @@ jobs:
           mkdir -p "$RUNNER_TEMP/offline-home"
           # Only work/tests/test_*.py is discovered. work/test.py has a top-level
           # Azure call and must never be imported by this job.
-          # Package installation is complete; the test process has no network.
-          sudo unshare --net -- env -i \
+          # Package installation is complete; tests have no external network.
+          # Local HTTP integration tests need loopback inside this isolated namespace.
+          # There are still no external interfaces or routes to a model service.
+          sudo unshare --net -- sh -c 'ip link set lo up && exec "$@"' _ env -i \
             PATH="$PATH" HOME="$RUNNER_TEMP/offline-home" \
             PYTHONUTF8=1 PYTHONDONTWRITEBYTECODE=1 \
             SAMANTHA_AZURE_FALLBACK=false SAMANTHA_LOG_REASONING=false \

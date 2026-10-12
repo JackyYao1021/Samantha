@@ -1,5 +1,40 @@
 # track1_nottingDuck
 
+## Durable workspace Agent and local console
+
+The new `samantha agent` mode selects bounded file tools from their results,
+persists tasks and approvals in SQLite, verifies actual file outcomes, and
+reconciles interrupted actions before resuming. A local Chinese web console
+shows task progress, exact change approvals, file verification, and follow-up
+tasks. The original Bash/LangGraph command entry point remains available.
+
+```powershell
+# From the repository root, using the existing environment:
+.\.venv\Scripts\python.exe work/src/samantha.py serve
+# Open http://127.0.0.1:8765
+```
+
+To run the web console in Docker (openEuler):
+
+```powershell
+docker compose up -d --build oe
+# Open http://127.0.0.1:8765
+docker compose logs -f oe
+```
+
+Compose starts the console on all container interfaces and publishes port 8765
+only on the host's loopback address. Task data and files persist through the
+existing `./work:/work` mount. Ollama runs on the host; the default container
+model endpoint is `http://host.docker.internal:11434/v1`. If `.env` overrides
+`QWEN_BASE_URL`, use an address reachable from the container.
+For an interactive container shell, run `docker compose exec oe bash`.
+Stop the service with `docker compose stop oe`.
+
+Default task files live in `work/.samantha/workspace`. See the
+[durable task Agent guide](readme_help/durable_task_agent.md) for tool contracts,
+CLI commands, recovery semantics, local UI, executable task evaluations, and
+the distinction between scripted protocol checks and real-model results.
+
 ## Team members
 
 We are a team called *NottingDuck* with following three members:
@@ -25,10 +60,13 @@ execution connects to `127.0.0.1:11434`; Docker Compose connects to
 
 ### 2. 🏗️ System Architecture
 
-Our system uses a fixed workflow with separate LLM roles for clarification,
+The original `samantha <request>` mode uses a fixed workflow with separate LLM roles for clarification,
 intent parsing, command generation, review, and bounded correction. Conditional
 routing and human approval govern execution; this does not imply open-ended
 autonomous planning or dynamic tool selection.
+
+The new `samantha agent` mode uses a separate durable tool-selection loop and
+SQLite state; its execution and recovery contracts are described in the guide above.
 
 The workflow is now orchestrated by **LangGraph**. `work/src/workflow.py` defines
 typed state, conditional routing, clarification/approval interrupts, and the
@@ -41,6 +79,13 @@ It includes 25 Chinese tasks with isolated fixtures, expected outcomes,
 interaction requirements, and checks against exported execution logs.
 The dedicated `docker-compose.tests.yaml` provides offline checks and an
 interactive real-task lab; Windows can use `work/tests/docker_real_tasks.ps1`.
+
+The [local model routing experiment](readme_help/model_routing_experiments.md)
+adds a separate development/heldout bounded-tool benchmark, capability profiles,
+fixed-model controls, rule/embedding/model-classifier routing, actual request
+telemetry, and saved-only audits. It uses installed local models with explicit
+budgets; its exploratory results do not imply production routing or arbitrary
+Bash end-to-end accuracy.
 
 The [evaluation pipeline](readme_help/evaluation_system.md) preserves the P0
 contracts, frozen artifacts, file outcome checks, offline regrading, and physical

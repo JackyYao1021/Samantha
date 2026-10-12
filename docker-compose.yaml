@@ -9,6 +9,9 @@ services:
     container_name: "oe"
     tty: true
     stdin_open: true
+    command: ["python3", "/work/src/samantha.py", "serve", "--host", "0.0.0.0", "--port", "8765"]
+    ports:
+      - "127.0.0.1:8765:8765"
     environment:
       QWEN_BASE_URL: ${QWEN_BASE_URL:-http://host.docker.internal:11434/v1}
       QWEN_MODEL: ${QWEN_MODEL:-qwen3:4b}

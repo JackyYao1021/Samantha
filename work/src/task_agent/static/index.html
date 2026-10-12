@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#f5f7f5">
+  <title>Samantha · 本地任务工作台</title>
+  <link rel="stylesheet" href="/style.css">
+  <script src="/app.js" defer></script>
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar" aria-label="任务导航">
+      <a class="brand" href="/" aria-label="Samantha 首页"><span class="brand-mark" aria-hidden="true">s</span><span>Samantha<small>LOCAL AGENT WORKSPACE</small></span></a>
+      <button class="new-task" id="new-task"><span aria-hidden="true">＋</span> 新建任务</button>
+      <div class="sidebar-label"><span>任务记录</span><span class="count" id="task-count">0</span></div>
+      <nav id="task-list" class="task-list" aria-label="已保存的任务"><p class="sidebar-empty">暂无任务。<br>从右侧描述一个目标开始。</p></nav>
+      <div class="sidebar-footer"><span class="status-dot"></span><div>本地持久保存<small>刷新或重启后，继续上次的任务</small></div></div>
+    </aside>
+
+    <main>
+      <header class="topbar"><div class="breadcrumb">工作台 <span>/</span> <strong>任务执行</strong></div><span class="local-badge"><span class="status-dot"></span> LOCAL SESSION</span></header>
+      <div class="main-content">
+        <div class="page-intro"><div><p class="eyebrow">YOUR WORK, WITH CONTEXT</p><h1>把目标交给 Samantha<span>。</span></h1><p class="intro-copy">选择工具、检查结果，每一步都有迹可循。</p></div><div class="model-badge"><span class="model-indicator"></span><div id="model-name">正在连接工作台…</div><small id="model-status">模型配置待读取</small></div></div>
+
+        <div id="notice" class="notice" role="alert" hidden></div>
+
+        <section class="composer panel" aria-labelledby="composer-title">
+          <div class="section-top"><h2 id="composer-title">这次想完成什么？</h2><span class="subtle" id="followup-label" hidden>使用上次任务的上下文</span></div>
+          <form id="task-form">
+            <label class="sr-only" for="request">描述你的任务</label>
+            <textarea id="request" name="request" rows="3" maxlength="12000" required placeholder="例如：查看工作区中的文本资料，整理一份摘要，确认后保存为 summary.md。"></textarea>
+            <div class="composer-bottom"><div class="workspace"><span aria-hidden="true">▣</span><div><span>当前工作区</span><code id="workspace-path">正在加载…</code></div></div><div class="submit-controls"><label class="step-control" for="max-steps">最多 <input id="max-steps" type="number" min="1" max="32" value="12" aria-label="最大工具步骤"> 步</label><button class="button primary" type="submit" id="submit-task" disabled>开始任务 <span aria-hidden="true">↗</span></button></div></div>
+          </form>
+          <div class="examples" aria-label="任务示例"><span>试一试</span><button type="button" data-example="列出工作区文件，说明有哪些可用资料。">查看工作区</button><button type="button" data-example="查找工作区文本文件中与 error 有关的内容，列出文件路径及对应证据。">查找错误线索</button><button type="button" data-example="在工作区创建 notes.md，写入标题「工作笔记」和一行「第一次任务执行」。写入前请让我确认。">创建工作笔记</button></div>
+        </section>
+
+        <section id="empty-state" class="empty-state" aria-label="开始任务说明">
+          <div class="empty-symbol" aria-hidden="true">✧</div><h2>从一个明确的目标开始</h2><p>工具在限定的工作区内执行，文件变更由你确认。<br>任务的状态、操作和验证证据会持续保留。</p>
+          <div class="process"><div><span>01</span><strong>理解与选择</strong><small>根据结果决定下一步工具</small></div><span class="process-arrow" aria-hidden="true">→</span><div><span>02</span><strong>确认与执行</strong><small>查看变更，授权后写入</small></div><span class="process-arrow" aria-hidden="true">→</span><div><span>03</span><strong>验证与继续</strong><small>检查文件终态，保留进度</small></div></div>
+        </section>
+
+        <section id="task-detail" hidden aria-label="任务详情">
+          <div class="detail-top"><div><p class="eyebrow" id="task-id"></p><h2 id="task-title"></h2></div><span id="task-status" class="status-pill"></span></div>
+          <div id="metrics" class="metrics"></div>
+          <div id="task-error" class="notice" role="alert" hidden></div>
+          <div id="approval" class="approval panel" hidden></div>
+          <div id="clarification" class="clarification panel" hidden></div>
+          <div id="result" class="result panel" hidden></div>
+          <div class="timeline-header"><div><h2>执行轨迹</h2><span>工具调用、确认与验证的实际记录</span></div><div class="task-controls"><button id="resume" class="button secondary" hidden>恢复 / 重试</button><button id="followup" class="button secondary" hidden>继续这个话题</button><button id="cancel" class="button ghost" hidden>停止任务</button></div></div>
+          <ol id="timeline" class="timeline"></ol>
+          <p class="evidence-note">“完成”表示 Agent 已结束本轮；操作旁的验证结果对应实际文件状态。用户目标是否达成，请结合产物与任务评测判断。</p>
+        </section>
+        <footer class="main-footer"><span>SAMANTHA</span><span>本地工作区 · 变更需确认 · 进度可恢复</span></footer>
+      </div>
+    </main>
+  </div>
+</body>
+</html>

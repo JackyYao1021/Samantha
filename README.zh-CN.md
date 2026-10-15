@@ -127,6 +127,8 @@ SQLite 保存任务及动作现场。重启后，用户通过「恢复 / 重试�
 
 Web、CLI 和任务级评测共用 [`AgentRuntime`](work/src/task_agent/runtime.py)。完整工具契约与恢复语义见[文件任务 Agent 指南](readme_help/durable_task_agent.md)。
 
+可用 `--intent-mode hierarchical` 在规划前增加一次结构化意图识别，包含持久化预算记账与有界回退；保留原请求、全部工具及逐动作审批。默认仍为 baseline，详见[意图契约与对照协议](readme_help/hierarchical_intent.md)。本实验独立于模型路由，目前不宣称准确率收益。
+
 ### Bash 工作流：固定角色与条件路由
 
 原有路径遵循「澄清 → 意图解析 → 命令生成 → 独立审阅 → 人工确认 → Bash 执行」，失败时最多进行三次纠错，每次新命令都重新审阅并确认。

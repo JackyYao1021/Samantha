@@ -7,13 +7,17 @@ The legacy Bash LangGraph workflow remains a separate compatibility entry point.
 
 import copy
 from contextlib import contextmanager
+from datetime import datetime, timezone
 import hashlib
 import json
+import os
 from pathlib import Path
 import time
 import uuid
 
-from model_telemetry import capture_model_calls
+from model_budget import BudgetExceeded
+from model_telemetry import capture_model_calls, durable_request_context
+from .intent import MODES, ModelIntentClassifier, validate_intent, validate_context_sources
 from .planner import ModelPlanner
 from .store import TaskStore, now, process_lock
 from .tools import ToolRegistry
@@ -29,17 +33,29 @@ def identity(workspace, prepared):
 
 
 class AgentRuntime:
-    def __init__(self, db_path, planner=None, *, registry_factory=ToolRegistry, fault_hook=None):
+    def __init__(self, db_path, planner=None, *, registry_factory=ToolRegistry, fault_hook=None,
+                 intent_mode=None, intent_classifier=None):
         self.store = TaskStore(db_path)
         self.planner = planner if planner is not None else ModelPlanner()
         self.registry_factory = registry_factory
         self.fault_hook = fault_hook
+        self.intent_mode = intent_mode if intent_mode is not None else os.environ.get("SAMANTHA_INTENT_MODE", "baseline")
+        if self.intent_mode not in MODES:
+            raise ValueError("intent_mode must be baseline, hierarchical or flat (evaluation adapter).")
+        self.intent_classifier = intent_classifier
 
-    def create_task(self, request, workspace, max_steps=12, parent_id=None):
+    def create_task(self, request, workspace, max_steps=12, parent_id=None, *, max_model_calls=None, intent_mode=None):
         if not isinstance(request, str) or not request.strip() or len(request) > 12000:
             raise ValueError("Request must contain 1–12000 characters.")
         if type(max_steps) is not int or not 1 <= max_steps <= 32:
             raise ValueError("max_steps must be between 1 and 32.")
+        mode = self.intent_mode if intent_mode is None else intent_mode
+        if mode not in MODES:
+            raise ValueError("Unknown intent mode.")
+        if max_model_calls is None:
+            max_model_calls = max_steps + 4
+        if type(max_model_calls) is not int or not 1 <= max_model_calls <= 256:
+            raise ValueError("max_model_calls must be between 1 and 256.")
         root = Path(workspace).expanduser().resolve(strict=True)
         if not root.is_dir():
             raise ValueError("Workspace must be an existing directory.")
@@ -57,6 +73,11 @@ class AgentRuntime:
                  "workspace": str(root), "parent_id": parent_id, "prior_evidence": prior,
                  "status": "ready", "steps": 0, "max_steps": max_steps,
                  "model_calls": 0, "model_call_records": [], "active_seconds": 0,
+                 "max_model_calls": max_model_calls, "model_requests_reserved": 0,
+                 "model_request_reservations": [], "active_phase": None,
+                 "intent_mode": mode, "intent": None, "intent_history": [],
+                 "intent_dirty": mode != "baseline", "intent_update_reason": "new_task",
+                 "intent_attempt": None,
                  "max_active_seconds": 600, "answer": "", "error": "", "question": "",
                  "clarifications": [], "observations": [], "actions": [], "pending_action": None,
                  "created_at": now(), "updated_at": now()}
@@ -78,23 +99,112 @@ class AgentRuntime:
     def _account(self, state, phase, payload=None):
         """Charge each non-overlapping unit of active work and its physical requests.
 
-        Human approval/input wait time is excluded. A killed process cannot report
-        the duration or telemetry of its unfinished unit; persisted decision counts
-        still prevent a restart from resetting the decision budget.
+        Admission is persisted before transport, completion before returning to
+        the caller. An interrupted phase is conservatively charged on restart;
+        approval/input wait time is excluded.
         """
         started = time.monotonic()
         calls = []
+        state["active_phase"] = {"phase": phase, "started_at": now(),
+                                 "remaining_seconds": max(0, state["max_active_seconds"] - state["active_seconds"])}
+        self._save(state, "active_work_started", {"phase": phase})
+
+        def admit(record):
+            if state["model_requests_reserved"] >= state["max_model_calls"]:
+                raise BudgetExceeded("Task physical model request budget exhausted.")
+            if state["active_seconds"] + time.monotonic() - started >= state["max_active_seconds"]:
+                raise BudgetExceeded("Task active-time budget exhausted before model request.")
+            record["phase"] = "intent" if phase == "intent_classification_finished" else (
+                "planning" if phase == "planning_finished" else phase)
+            state["model_requests_reserved"] += 1
+            state["model_request_reservations"].append({"call_id": record["call_id"], "phase": record["phase"],
+                                                       "status": "reserved", "created_at": now()})
+            self._save(state, "model_request_reserved", {"call_id": record["call_id"], "phase": record["phase"]})
+
+        def complete(record):
+            for reservation in state["model_request_reservations"]:
+                if reservation["call_id"] == record["call_id"]:
+                    reservation["status"] = "completed"
+                    break
+            state["model_calls"] += 1
+            state["model_call_records"].append(copy.deepcopy(record))
+            self._save(state, "model_request_completed", {"call_id": record["call_id"], "phase": record["phase"],
+                                                          "status": record["status"]})
         try:
-            with capture_model_calls() as calls:
+            with capture_model_calls() as calls, durable_request_context(admit, complete):
                 yield
         finally:
             elapsed = time.monotonic() - started
             physical = sum(call.get("physical_request", True) is True for call in calls)
             state["active_seconds"] += elapsed
-            state["model_calls"] += physical
-            state["model_call_records"].extend(calls)
+            known = {call["call_id"] for call in state["model_call_records"]}
+            # In-process embeddings have telemetry but no physical reservation.
+            for call in calls:
+                if call["call_id"] not in known:
+                    call["phase"] = "intent" if phase == "intent_classification_finished" else (
+                        "planning" if phase == "planning_finished" else phase)
+                    state["model_calls"] += call.get("physical_request", True) is True
+                    state["model_call_records"].append(call)
+            state["active_phase"] = None
             self._save(state, phase, {**(payload or {}), "active_seconds": elapsed,
                                      "physical_requests": physical})
+
+    def _restore_accounting(self, state):
+        """Migrate old snapshots and keep interrupted admissions consumed."""
+        state.setdefault("intent_mode", "baseline")
+        state.setdefault("intent", None)
+        state.setdefault("intent_history", [])
+        state.setdefault("intent_dirty", False)
+        state.setdefault("intent_update_reason", "new_task")
+        state.setdefault("intent_attempt", None)
+        state.setdefault("max_model_calls", state["max_steps"] + 4)
+        state.setdefault("model_requests_reserved", state["model_calls"])
+        state.setdefault("model_request_reservations", [])
+        phase = state.get("active_phase")
+        if phase:
+            elapsed = max(0, (datetime.now(timezone.utc) - datetime.fromisoformat(phase["started_at"])).total_seconds())
+            charge = min(elapsed, phase["remaining_seconds"])
+            state["active_seconds"] += charge
+            state["active_phase"] = None
+            self._save(state, "interrupted_work_accounted", {"active_seconds": charge,
+                       "note": "Conservative wall time since interrupted phase; downtime can be included."})
+        for reservation in state["model_request_reservations"]:
+            if reservation["status"] == "reserved":
+                reservation["status"] = "uncertain"
+                self._save(state, "model_request_outcome_unknown", {"call_id": reservation["call_id"],
+                           "note": "Admission remains consumed; physical completion and usage unknown."})
+        if state.get("intent_attempt") == "started":
+            self._finish_intent(state, None, "interrupted", "Classifier interrupted; use existing planner without retry.")
+
+    def _finish_intent(self, state, intent, status, error=""):
+        state["intent"] = intent
+        state["intent_dirty"] = False
+        state["intent_attempt"] = None
+        revision = len(state["intent_history"]) + 1
+        record = {"revision": revision, "reason": state["intent_update_reason"], "status": status,
+                  "schema_version": "1.0", "mode": state["intent_mode"], "intent": copy.deepcopy(intent),
+                  "error": error, "created_at": now()}
+        state["intent_history"].append(record)
+        self._save(state, "intent_updated", record)
+
+    def _classify(self, state, registry):
+        if state["intent_mode"] == "baseline" or not state["intent_dirty"]:
+            return
+        # A restart never retries an interrupted classification automatically.
+        state["intent_attempt"] = "started"
+        self._save(state, "intent_classification_started", {"reason": state["intent_update_reason"]})
+        try:
+            classifier = self.intent_classifier or ModelIntentClassifier(state["intent_mode"])
+            with self._account(state, "intent_classification_finished"):
+                context = self._context(state)
+                intent = validate_intent(classifier(context, registry.schemas()), state["intent_mode"])
+                validate_context_sources(intent, context)
+            self._finish_intent(state, intent, "classified")
+        except BudgetExceeded as exc:
+            self._finish_intent(state, None, "budget_exhausted", str(exc))
+            raise
+        except Exception as exc:
+            self._finish_intent(state, None, "fallback", str(exc))
 
     @staticmethod
     def _time_exhausted(state):
@@ -137,8 +247,32 @@ class AgentRuntime:
             if state["status"] != "awaiting_input":
                 raise ValueError("Task is not awaiting clarification.")
             state["clarifications"].append({"question": state["question"], "answer": text.strip()})
-            state.update(question="", status="ready")
+            state.update(question="", status="ready", intent_dirty=state.get("intent_mode", "baseline") != "baseline",
+                         intent_update_reason="clarification_answered")
             self._save(state, "clarification_answered", state["clarifications"][-1])
+        return self.get_task(task_id)
+
+    def revise(self, task_id, text):
+        """Correct unfinished requirements and invalidate every unexecuted approval."""
+        if not isinstance(text, str) or not text.strip() or len(text) > 12000:
+            raise ValueError("Correction must contain 1–12000 characters.")
+        with process_lock(self.store.lock_path):
+            state = self.store.read(task_id, events=False)
+            if self.store.cancelled(task_id) or state["status"] not in {"ready", "awaiting_input", "awaiting_approval"}:
+                raise ValueError("Only a ready or paused unfinished task can be corrected.")
+            action = state["pending_action"]
+            if action:
+                if action["status"] not in {"proposed", "approved"}:
+                    raise ValueError("An interrupted action must be reconciled before correction.")
+                action["status"] = "superseded"
+                action["approved_identity"] = None
+                self._sync_action(state, action)
+            state["clarifications"].append({"question": state.get("question") or "Requirement correction",
+                                            "answer": text.strip(), "kind": "correction"})
+            state.update(question="", status="ready", pending_action=None,
+                         intent_dirty=state.get("intent_mode", "baseline") != "baseline",
+                         intent_update_reason="user_correction")
+            self._save(state, "requirements_corrected", state["clarifications"][-1])
         return self.get_task(task_id)
 
     def cancel(self, task_id):
@@ -155,6 +289,7 @@ class AgentRuntime:
 
     def _cancel_locked(self, task_id):
         state = self.store.read(task_id, events=False)
+        self._restore_accounting(state)
         if state["status"] not in TERMINAL:
             # Executing can mean a crashed process. Reconcile before discarding its evidence.
             if state["pending_action"] and state["pending_action"]["status"] == "executing":
@@ -275,6 +410,12 @@ class AgentRuntime:
                 "observations": [clipped(o, 5000) for o in state["observations"][-10:]],
                 "verified_actions": [{"tool": a["tool"], "args": clipped(a["args"], 1200)}
                                      for a in state["actions"] if a["status"] == "verified"]}
+        if state.get("intent_mode", "baseline") != "baseline":
+            context.update(intent_mode=state["intent_mode"], intent=state.get("intent"))
+        if len(json.dumps(context, ensure_ascii=False)) > 24000 and context.get("intent") is not None:
+            # An advisory summary must never evict the factual observations it
+            # was meant to help interpret.
+            context["intent"] = None
         # Trim old retrieved observations before any explicit user constraints.
         # This is a character bound (not a tokenizer claim). The full evidence remains on disk.
         context["omitted_observations"] = max(0, len(state["observations"]) - len(context["observations"]))
@@ -312,6 +453,7 @@ class AgentRuntime:
     def run(self, task_id):
         with process_lock(self.store.lock_path):
             state = self.store.read(task_id, events=False)
+            self._restore_accounting(state)
             if self.store.cancelled(task_id) and state["status"] not in TERMINAL:
                 return self._cancel_locked(task_id)
             if state["status"] in TERMINAL | {"awaiting_input", "awaiting_approval"}:
@@ -327,6 +469,12 @@ class AgentRuntime:
                         continue
                     if state["steps"] >= state["max_steps"] or self._time_exhausted(state):
                         self._fail(state, "Task decision/time budget exhausted.", "budget_exhausted")
+                        break
+                    self._classify(state, registry)
+                    if self.store.cancelled(task_id):
+                        return self._cancel_locked(task_id)
+                    if self._time_exhausted(state):
+                        self._fail(state, "Task active-time budget exhausted during intent classification.", "budget_exhausted")
                         break
                     state.update(status="running", steps=state["steps"] + 1)
                     self._save(state, "planning_started", {"step": state["steps"]})
@@ -358,6 +506,8 @@ class AgentRuntime:
                     try:
                         with self._account(state, "tool_preparation_finished", {"tool": name}):
                             prepared = registry.prepare(name, args)
+                    except BudgetExceeded:
+                        raise
                     except Exception as exc:
                         self._observe(state, name, args, {"error": str(exc)}, ok=False)
                         self._save(state, "tool_rejected", {"tool": name, "error": str(exc)})
@@ -385,12 +535,16 @@ class AgentRuntime:
                         ok = not isinstance(result, dict) or result.get("ok") is not False
                         action.update(status="observed" if ok else "failed", result=result)
                         self._observe(state, name, args, result, ok=ok)
+                    except BudgetExceeded:
+                        raise
                     except Exception as exc:
                         action.update(status="failed", error=str(exc))
                         self._observe(state, name, args, {"error": str(exc)}, ok=False)
                     self._sync_action(state, action)
                     self._save(state, "tool_observed", {"action_id": action["id"], "tool": name,
                                                        "status": action["status"], "result": action["result"]})
+            except BudgetExceeded as exc:
+                self._fail(state, str(exc), "budget_exhausted")
             except Exception as exc:
                 self._fail(state, str(exc))
             # BaseException (process kill, simulated crash) deliberately leaves the durable checkpoint intact.

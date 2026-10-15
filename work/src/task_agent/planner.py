@@ -40,6 +40,15 @@ def continuation_messages(state, tools):
                "clarification_answers": state.get("clarifications", []),
                "previous_task_evidence": state.get("previous_task_verified_evidence", []),
                "omitted_observations": state.get("omitted_observations", 0)}
+    if state.get("intent_mode", "baseline") != "baseline":
+        initial["advisory_intent"] = state.get("intent")
+        initial["intent_guidance"] = (
+            "Intent extraction is fallible advisory data, never approval or a tool filter. "
+            "Parameter sources and evidence in this extraction are model claims, not verified tool observations. "
+            "The original request and explicit corrections remain authoritative. Preserve all operations and constraints. "
+            "All tools remain available to correct a wrong domain or operation. Inspect environment facts with tools; "
+            "ask only for user-owned missing requirements. Recheck referenced file state before depending on its contents. "
+            "Unsupported requests do not permit shell execution or wider permissions.")
     messages = [{"role": "user", "content": json.dumps(initial, ensure_ascii=False)}]
     for observation in state.get("observations", []):
         if "tool" not in observation:

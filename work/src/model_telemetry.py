@@ -23,6 +23,17 @@ USAGE_FIELDS = (
     "reasoning_tokens",
 )
 _captures = ContextVar("samantha_model_call_captures", default=())
+_durable_request = ContextVar("samantha_durable_model_request", default=None)
+
+
+@contextmanager
+def durable_request_context(admit, complete):
+    """Install task checkpoint callbacks without replacing an experiment budget."""
+    token = _durable_request.set((admit, complete))
+    try:
+        yield
+    finally:
+        _durable_request.reset(token)
 
 
 @contextmanager
@@ -145,8 +156,6 @@ immediately before create/post; response parsing may occur inside the boundary.
     """
     # Budget admission happens before the transport and outside request failure
     # recording. It must never be mistaken for a failed physical model request.
-    ticket = (before_request(provider=provider, transport=transport, model=model, parameters=parameters)
-              if physical_request else None)
     record = {
         "call_id": uuid.uuid4().hex,
         "provider": provider,
@@ -161,6 +170,10 @@ immediately before create/post; response parsing may occur inside the boundary.
         "physical_request": physical_request,
         "prompt_templates": list(prompt_templates or []),
     }
+    durable = _durable_request.get() if physical_request else None
+    ticket = (before_request(provider=provider, transport=transport, model=model, parameters=parameters,
+                            admission=(lambda: durable[0](record)) if durable else None)
+              if physical_request else None)
     trace_scope = trace_context(call_id=record["call_id"])
     trace_scope.__enter__()
     record["trace"] = current_trace()
@@ -193,6 +206,8 @@ immediately before create/post; response parsing may occur inside the boundary.
             finally:
                 if ticket is not None:
                     after_request(ticket, record)
+                if durable is not None:
+                    durable[1](record)
         finally:
             trace_scope.__exit__(None, None, None)
 

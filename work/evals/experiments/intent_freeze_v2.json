@@ -1,0 +1,11 @@
+{
+  "freeze_version": "2.0",
+  "frozen_before_live": true,
+  "formal_comparison_status": "not_run",
+  "frozen_at_utc": "2026-10-12T19:19:52.613551+00:00",
+  "dataset_sha256": "cd411e44173458e4ccd7cf5c0f8bad2d9ca471769b547384f94af021a657f898",
+  "protocol_sha256": "a055dee363680f7a2ec730b9c0f4373a53e931a2d0f4e1c28a3c12784ee5e8e8",
+  "supersedes": "intent_freeze_v1.json",
+  "revision_reason": "Independent pre-inference review: preserve destination directory/filename and missing dependency; explicitly label exact-content/negative constraints; narrow clarification slot checks. No classifier output or live inference informed this revision.",
+  "change_policy": "Preserve frozen versions; any further revisions require a new version and explicit history."
+}

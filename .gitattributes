@@ -1,3 +1,9 @@
 *.sh text eol=lf
 *.bashrc text eol=lf
 Dockerfile text eol=lf
+
+# Frozen intent evidence is hashed byte-for-byte; preserve original line endings.
+work/evals/datasets/intent_tasks_v1.json -text
+work/evals/datasets/intent_tasks_v2.json -text
+work/evals/experiments/intent_protocol_v1.json -text
+work/evals/experiments/intent_protocol_v2.json -text

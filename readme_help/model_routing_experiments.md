@@ -4,6 +4,9 @@
 它是 Samantha 仓库中的独立实验入口，不改变生产 CLI 的默认 Qwen 模型或审批流程。
 
 首轮完整运行见 [2026-10-12 结果与审计](model_routing_results_20261012.md)。
+新增三级级联及六策略对比见 [规则 → Embedding → LLM 级联路由](cascade_model_routing.md)。
+三组实际运行见 [2026-10-14 级联结果与审计](cascade_model_routing_results_20261014.md)。
+下文旧五策略配置继续保留；级联实验使用独立配置，阈值只在开发集校准。
 
 ## 任务与评分
 

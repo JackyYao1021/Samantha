@@ -38,6 +38,13 @@ def verify_sources(run, manifest):
         raise ValueError("Frozen configuration integrity mismatch")
     if file_hash(frozen / "prompts.json") != manifest["prompt_sha256"]:
         raise ValueError("Frozen prompt integrity mismatch")
+    if manifest.get("prototype_dataset") and file_hash(frozen / "routing_prototypes.json") != manifest["prototype_dataset"]["sha256"]:
+        raise ValueError("Frozen prototype corpus integrity mismatch")
+    if "cascade_calibration_sha256" in manifest:
+        if file_hash(run / "cascade_calibration.json") != manifest["cascade_calibration_sha256"]:
+            raise ValueError("Cascade calibration integrity mismatch")
+        if manifest.get("prototypes_sha256") and file_hash(run / "prototypes.json") != manifest["prototypes_sha256"]:
+            raise ValueError("Cascade prototypes integrity mismatch")
 
 
 def _frozen_modules(run):
@@ -185,6 +192,35 @@ def audit(run, output):
     selection = routing.choose_models(capabilities)
     if selection != manifest["selection"]:
         raise ValueError("Frozen model selection cannot be reconstructed from development evidence")
+    cascade_verified = None
+    if manifest.get("cascade_version"):
+        cascade = importlib.import_module(frozen_runner.__package__ + ".routing_cascade")
+        prototypes = json.loads((run / "prototypes.json").read_text(encoding="utf-8")) if manifest.get("prototypes_sha256") else []
+        extra = {p["case_id"]: p for p in cascade.load_prototype_examples(run / "frozen" / "routing_prototypes.json")} if manifest.get("prototype_dataset") else {}
+        source_requests = {}
+        for prototype in prototypes:
+            identifier = prototype["case_id"]
+            case = extra.get(identifier) or cases.get(identifier)
+            if (case is None or case["split"] != "development" or case["family"] != prototype["family"]
+                    or (identifier not in extra and identifier not in manifest["dataset"]["case_ids"])
+                    or case.get("group_id") != prototype.get("group_id")):
+                raise ValueError("Cascade prototype labels are not frozen development labels")
+            source_requests[identifier] = case["request"] if identifier in extra else case["input"]["request"]
+        fitted = cascade.calibrate_embedding(prototypes, manifest["config"]["cascade"])
+        saved = json.loads((run / "cascade_calibration.json").read_text(encoding="utf-8"))
+        if fitted != saved or fitted != manifest["cascade_calibration"]:
+            raise ValueError("Cascade gate cannot be reconstructed from development prototypes")
+        # Bind prototype vectors to the actual frozen development embed response.
+        if prototypes:
+            if len(setup_calls) != 1:
+                raise ValueError("Expected one development prototype batch")
+            directory = run / "requests" / f"request_{setup_calls[0]['request_number']:04d}"
+            request = json.loads((directory / "request.json").read_text(encoding="utf-8"))
+            response = json.loads((directory / "response.json").read_text(encoding="utf-8"))
+            if (request["input"] != [source_requests[p["case_id"]] for p in prototypes]
+                    or response.get("embeddings") != [p["vector"] for p in prototypes]):
+                raise ValueError("Cascade prototype vectors differ from saved setup transport")
+        cascade_verified = True
     phases = {"development": _phase([call for row in development for call in row["calls"]]),
               "prototype_setup": _phase(setup_calls),
               "heldout": _phase([call for row in records if row["split"] == "heldout" for call in row["calls"]])}
@@ -199,6 +235,7 @@ def audit(run, output):
     routed_models = {model for counts in initial_models.values() for model in counts}
     result = {"schema_version": "routing-audit-v1", "original_run": str(run),
               "frozen_sources_verified": True, "development_selection_verified": True,
+              "cascade_calibration_verified": cascade_verified,
               "strict_output_duplicate_keys": sum(item["kind"] == "duplicate_keys" for item in output_diagnostics),
               "raw_output_diagnostics": output_diagnostics, "submitted_requests": len(submitted),
               "completion_telemetry": len(telemetry), "ledger_complete": complete_ledger,

@@ -1,0 +1,20 @@
+{
+  "schema_version": "routing-run-v1",
+  "models": ["qwen3:4b", "qwen2.5vl:7b"],
+  "embedding_model": "bge-m3:latest",
+  "prototype_dataset": "../datasets/routing_prototypes_v2.json",
+  "policies": ["fixed_a", "fixed_b", "model_driven", "cascade"],
+  "repeats": 1,
+  "seed": 17,
+  "max_calls": 150,
+  "max_seconds": 1200,
+  "request_timeout_seconds": 45,
+  "max_output_tokens": 768,
+  "fallback": true,
+  "cascade": {
+    "similarity_thresholds": [0.45, 0.55, 0.65, 0.75, 0.85, 0.95],
+    "margin_thresholds": [0.03, 0.05, 0.10, 0.15, 0.20],
+    "min_precision": 0.75,
+    "min_accepted": 12
+  }
+}

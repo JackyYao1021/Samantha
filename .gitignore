@@ -210,3 +210,7 @@ __marimo__/
 
 # Durable interaction logs and SQLite WAL sidecars
 work/.samantha/
+
+# Local CV documents, editing scripts, and rendered artifacts
+/output/resume_*/
+/output/*简历*

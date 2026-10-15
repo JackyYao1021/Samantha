@@ -77,6 +77,8 @@ python3 work/src/samantha.py agent --db ./task-state.sqlite3 list
 
 ## 工具选择与状态
 
+新任务可用 `--intent-mode hierarchical` 或 `SAMANTHA_INTENT_MODE=hierarchical` 启用一次调用的两级意图提取；默认 baseline 不分类。Web 与 CLI 使用相同配置及保存的任务模式。需求纠正、模型物理请求预算、契约和 A/B/C 评测见[分级意图指南](hierarchical_intent.md)。
+
 模型每次只能返回一个经过结构校验的选择：调用工具、提出必要澄清、报告结束。工具的返回值会进入下一次决策，操作名称和参数不由固定脚本事先选定。
 
 模型的输出 JSON Schema 根据实际工具注册表生成，每个工具分支限定名称和参数，同时提供澄清/结束分支；运行器仍独立验证返回值。接入方式参考 [Ollama 官方结构化输出文档](https://docs.ollama.com/capabilities/structured-outputs)。这可约束输出格式，不能单独保证工具选择或用户目标正确。

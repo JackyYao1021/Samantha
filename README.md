@@ -127,6 +127,8 @@ SQLite preserves task and action state. After a restart, use the console's resum
 
 The web console, CLI and task evaluations share [`AgentRuntime`](work/src/task_agent/runtime.py). See the [file-task agent guide](readme_help/durable_task_agent.md) for tool contracts and recovery semantics.
 
+Optional `--intent-mode hierarchical` adds one structured intent call before planning, with durable accounting and bounded fallback. The original request, all tools and per-action approvals remain authoritative. Baseline remains the default; see the [intent contract and comparison protocol](readme_help/hierarchical_intent.md). This is separate from model routing and does not establish an accuracy improvement.
+
 ### Bash workflow: fixed roles and conditional routing
 
 The original path follows clarification → intent parsing → command generation → independent review → human approval → Bash execution. Failures allow up to three corrections; every new command sequence is reviewed and approved again.

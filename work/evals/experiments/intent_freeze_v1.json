@@ -1,0 +1,9 @@
+{
+  "freeze_version": "1.0",
+  "frozen_before_live": true,
+  "formal_comparison_status": "not_run",
+  "frozen_at_utc": "2026-10-12T19:14:13.650232+00:00",
+  "dataset_sha256": "384cf40eec112770552978bc61519f236e61173c31e2c5923142ff652bd250e0",
+  "protocol_sha256": "7618d2fabf2412611ddac30248ad9bd965c915d1b6a0be29a8c1dac86db16716",
+  "change_policy": "Any dataset or protocol change requires a new version and freeze manifest; never overwrite this manifest to conceal post-evaluation changes."
+}

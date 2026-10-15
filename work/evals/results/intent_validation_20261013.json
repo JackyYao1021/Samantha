@@ -1,0 +1,385 @@
+{
+  "schema_version": "1.0",
+  "date": "2026-10-13",
+  "branch": "docs/bilingual-readme-architecture",
+  "preserved_user_files": [
+    "work/notes.txt",
+    "work/todo_copy.txt"
+  ],
+  "repository_instructions": "No applicable AGENTS.md found in repository or ancestor directories.",
+  "baseline": {
+    "command": ".\\.venv\\Scripts\\python.exe -B -m unittest discover -s work/tests -p 'test_*.py' -q",
+    "tests": 625,
+    "skipped": 3,
+    "failures": 0,
+    "errors": 0,
+    "seconds": 60.179,
+    "result": "OK",
+    "model_requests": "Offline test mocks only; no live model validation."
+  },
+  "formal_comparison": {
+    "status": "not_run",
+    "quality_improvement_claim": false,
+    "planned_runs": 468,
+    "max_physical_requests": 3924
+  },
+  "default_mode": "baseline",
+  "post_change": {
+    "status": "passed",
+    "command": ".\\.venv\\Scripts\\python.exe -B -m unittest discover -s work/tests -p test_*.py -q",
+    "tests": 694,
+    "skipped": 3,
+    "failures": 0,
+    "errors": 0,
+    "seconds": 86.432,
+    "result": "OK",
+    "log": "work/.test-results/intent-unittest-final-v21.txt",
+    "log_sha256": "cbe132543c81d6f8d6ce046837aeaaa419362cf8ae191f690f07ee4fcb6096b1",
+    "javascript_syntax": "vm.Script parsed final task_agent/static/app.js successfully",
+    "visual_browser_acceptance": "not_run",
+    "remote_linux_ci": "not_run"
+  },
+  "versions": {
+    "contract": "1.0",
+    "classifier_prompt": "1.1",
+    "annotation": "2.0",
+    "protocol": "2.0",
+    "scorer": "2.1"
+  },
+  "dataset": {
+    "cases": 64,
+    "semantic_groups": 31,
+    "development_cases": 38,
+    "development_groups": 18,
+    "heldout_cases": 26,
+    "heldout_groups": 13,
+    "freeze": {
+      "freeze_version": "2.0",
+      "frozen_before_live": true,
+      "formal_comparison_status": "not_run",
+      "frozen_at_utc": "2026-10-12T19:19:52.613551+00:00",
+      "dataset_sha256": "cd411e44173458e4ccd7cf5c0f8bad2d9ca471769b547384f94af021a657f898",
+      "protocol_sha256": "a055dee363680f7a2ec730b9c0f4373a53e931a2d0f4e1c28a3c12784ee5e8e8",
+      "supersedes": "intent_freeze_v1.json",
+      "revision_reason": "Independent pre-inference review: preserve destination directory/filename and missing dependency; explicitly label exact-content/negative constraints; narrow clarification slot checks. No classifier output or live inference informed this revision.",
+      "change_policy": "Preserve frozen versions; any further revisions require a new version and explicit history."
+    },
+    "revision_note": "v2 was frozen before all live inference after independent semantic review; v1 remains preserved."
+  },
+  "offline_protocol": {
+    "execution": "scripted_oracle_protocol_only",
+    "planned_runs": 384,
+    "completed_runs": 384,
+    "complete_task_successes": 384,
+    "file_outcome_passes": 384,
+    "protocol_passes": 384,
+    "physical_model_requests": 0,
+    "new_requests_during_regrade": 0,
+    "source_run": "work/.test-results/intent-offline-v2",
+    "rescored_evidence": "work/.test-results/intent-offline-v2-regrade21",
+    "manifest_sha256": "220e1d3e1cc3807a64b1d84163c6c83a1e5d4af4aaca44a3b957c6f6c4f6259b",
+    "summary_sha256": "65fb28f2a9f21f472ac5993d96bd4d318f0e59a5f6a745ce353c0af1adf966ab",
+    "quality_improvement_claim": false
+  },
+  "live_smoke": {
+    "command": "$env:QWEN_MODEL = 'qwen3:4b'; $env:QWEN_API_MODE = 'openai'; $env:QWEN_BASE_URL = 'http://127.0.0.1:11434/v1'; $env:QWEN_TIMEOUT = '30'; ..\\.venv\\Scripts\\python.exe -B -m evals.intent_eval --live --case create_exact_en --case copy_preserve_zh --case missing_name_zh --max-calls 30 --max-seconds 480 --output .test-results/intent-smoke-v2-20261013",
+    "configuration": {
+      "endpoint_kind": "loopback",
+      "QWEN_MODEL": "qwen3:4b",
+      "QWEN_API_MODE": "openai",
+      "QWEN_REASONING_EFFORT": "none",
+      "QWEN_EVAL_MAX_TOKENS": "3072",
+      "SAMANTHA_AZURE_FALLBACK": "false",
+      "temperature": 0.2,
+      "top_p": 1.0,
+      "QWEN_BASE_URL": "http://127.0.0.1:11434/v1",
+      "QWEN_TIMEOUT": "30"
+    },
+    "model_metadata": {
+      "status": "observed",
+      "source": "loopback /api/tags",
+      "model": "qwen3:4b",
+      "name": "qwen3:4b",
+      "digest": "359d7dd4bcdab3d86b87d73ac27966f4dbb9f5efdfcc75d34a8764a09474fae7",
+      "size": 2497293931,
+      "modified_at": "2026-10-05T01:44:25.5172459+08:00",
+      "details": {
+        "parent_model": "",
+        "format": "gguf",
+        "family": "qwen3",
+        "families": [
+          "qwen3"
+        ],
+        "parameter_size": "4.0B",
+        "quantization_level": "Q4_K_M",
+        "context_length": 262144,
+        "embedding_length": 2560,
+        "runner": "ggml"
+      }
+    },
+    "request_budget": {
+      "max_calls": 30,
+      "calls": 30,
+      "max_seconds": 480.0,
+      "elapsed_seconds": 372.188,
+      "max_reported_tokens": null,
+      "reported_tokens": 42482,
+      "missing_usage_calls": 5,
+      "token_limit_kind": "returned_usage_stop; missing usage cannot prove a hard token cap"
+    },
+    "planned_runs": 9,
+    "started_runs": 8,
+    "completed_runs": 7,
+    "complete_task_successes": 3,
+    "file_outcome_passes": 3,
+    "protocol_passes": 3,
+    "coverage_complete": false,
+    "physical_model_requests": 30,
+    "classification_requests": 5,
+    "classification_timeouts": 5,
+    "valid_classification_results": 0,
+    "new_requests_during_regrade": 0,
+    "default_change_justified": false,
+    "source_run": "work/.test-results/intent-smoke-v2-20261013",
+    "rescored_evidence": "work/.test-results/intent-smoke-v2-20261013-regrade21",
+    "source_manifest_sha256": "ddc55e01126db17318e9f198e38aac86b26d5c108fc689c571da1c2498477712",
+    "rescored_manifest_sha256": "0623353efa95b146c4ae884b4bef7c390e78f67404fb49ec52b932f9c37ada64",
+    "rescored_summary_sha256": "dbaacc10cd7f22166a3053ce271cc6b675aed7eabd2eda9d927736576d9ddfc7",
+    "groups": {
+      "same_total/A": {
+        "planned_runs": 3,
+        "started_runs": 3,
+        "completed_runs": 2,
+        "task_success_count": 1,
+        "filesystem_pass_count": 1,
+        "protocol_pass_count": 1,
+        "physical_model_requests": 6,
+        "classification_physical_requests": 0,
+        "classification_elapsed_seconds": 0,
+        "latency_seconds_p50": 11.984,
+        "latency_seconds_p95": 39.734
+      },
+      "same_total/B": {
+        "planned_runs": 3,
+        "started_runs": 2,
+        "completed_runs": 2,
+        "task_success_count": 1,
+        "filesystem_pass_count": 1,
+        "protocol_pass_count": 1,
+        "physical_model_requests": 9,
+        "classification_physical_requests": 2,
+        "classification_elapsed_seconds": 60.07799999997951,
+        "latency_seconds_p50": 52.578,
+        "latency_seconds_p95": 72.703
+      },
+      "same_total/C": {
+        "planned_runs": 3,
+        "started_runs": 3,
+        "completed_runs": 3,
+        "task_success_count": 1,
+        "filesystem_pass_count": 1,
+        "protocol_pass_count": 1,
+        "physical_model_requests": 15,
+        "classification_physical_requests": 3,
+        "classification_elapsed_seconds": 90.09400000004098,
+        "latency_seconds_p50": 58.828,
+        "latency_seconds_p95": 77.985
+      }
+    },
+    "cases": [
+      {
+        "case_id": "create_exact_en",
+        "mode": "A",
+        "runtime_status": "cancelled",
+        "evaluation_status": "completed_fail",
+        "task_success": false,
+        "file_outcome_success": false,
+        "protocol_pass": false,
+        "protocol_issues": [
+          "proposal_outside_exact_approval_policy"
+        ],
+        "failure_labels": [
+          "omitted_operation",
+          "parameters",
+          "protocol"
+        ],
+        "physical_model_requests": 3,
+        "classification_physical_requests": 0,
+        "elapsed_seconds": 39.734
+      },
+      {
+        "case_id": "create_exact_en",
+        "mode": "B",
+        "runtime_status": "cancelled",
+        "evaluation_status": "completed_fail",
+        "task_success": false,
+        "file_outcome_success": false,
+        "protocol_pass": false,
+        "protocol_issues": [
+          "proposal_outside_exact_approval_policy"
+        ],
+        "failure_labels": [
+          "infrastructure",
+          "omitted_operation",
+          "parameters",
+          "protocol"
+        ],
+        "physical_model_requests": 4,
+        "classification_physical_requests": 1,
+        "elapsed_seconds": 52.578
+      },
+      {
+        "case_id": "create_exact_en",
+        "mode": "C",
+        "runtime_status": "cancelled",
+        "evaluation_status": "completed_fail",
+        "task_success": false,
+        "file_outcome_success": false,
+        "protocol_pass": false,
+        "protocol_issues": [
+          "proposal_outside_exact_approval_policy"
+        ],
+        "failure_labels": [
+          "infrastructure",
+          "omitted_operation",
+          "parameters",
+          "protocol"
+        ],
+        "physical_model_requests": 4,
+        "classification_physical_requests": 1,
+        "elapsed_seconds": 51.5
+      },
+      {
+        "case_id": "copy_preserve_zh",
+        "mode": "B",
+        "runtime_status": "succeeded",
+        "evaluation_status": "completed_pass",
+        "task_success": true,
+        "file_outcome_success": true,
+        "protocol_pass": true,
+        "protocol_issues": [],
+        "failure_labels": [
+          "infrastructure"
+        ],
+        "physical_model_requests": 5,
+        "classification_physical_requests": 1,
+        "elapsed_seconds": 72.703
+      },
+      {
+        "case_id": "copy_preserve_zh",
+        "mode": "C",
+        "runtime_status": "succeeded",
+        "evaluation_status": "completed_pass",
+        "task_success": true,
+        "file_outcome_success": true,
+        "protocol_pass": true,
+        "protocol_issues": [],
+        "failure_labels": [
+          "infrastructure"
+        ],
+        "physical_model_requests": 5,
+        "classification_physical_requests": 1,
+        "elapsed_seconds": 58.828
+      },
+      {
+        "case_id": "copy_preserve_zh",
+        "mode": "A",
+        "runtime_status": "succeeded",
+        "evaluation_status": "completed_pass",
+        "task_success": true,
+        "file_outcome_success": true,
+        "protocol_pass": true,
+        "protocol_issues": [],
+        "failure_labels": [],
+        "physical_model_requests": 2,
+        "classification_physical_requests": 0,
+        "elapsed_seconds": 11.984
+      },
+      {
+        "case_id": "missing_name_zh",
+        "mode": "C",
+        "runtime_status": "cancelled",
+        "evaluation_status": "completed_fail",
+        "task_success": false,
+        "file_outcome_success": false,
+        "protocol_pass": false,
+        "protocol_issues": [
+          "proposal_outside_exact_approval_policy",
+          "required_clarification_missing"
+        ],
+        "failure_labels": [
+          "infrastructure",
+          "omitted_operation",
+          "parameters",
+          "protocol"
+        ],
+        "physical_model_requests": 6,
+        "classification_physical_requests": 1,
+        "elapsed_seconds": 77.985
+      },
+      {
+        "case_id": "missing_name_zh",
+        "mode": "A",
+        "runtime_status": "failed",
+        "evaluation_status": "incomplete_budget",
+        "task_success": false,
+        "file_outcome_success": false,
+        "protocol_pass": false,
+        "protocol_issues": [
+          "required_clarification_missing"
+        ],
+        "failure_labels": [
+          "omitted_operation",
+          "protocol"
+        ],
+        "physical_model_requests": 1,
+        "classification_physical_requests": 0,
+        "elapsed_seconds": 6.625
+      },
+      {
+        "case_id": "missing_name_zh",
+        "mode": "B",
+        "runtime_status": null,
+        "evaluation_status": "not_started_budget",
+        "task_success": false,
+        "file_outcome_success": null,
+        "protocol_pass": false,
+        "protocol_issues": null,
+        "failure_labels": [
+          "budget"
+        ],
+        "physical_model_requests": 0,
+        "classification_physical_requests": 0,
+        "elapsed_seconds": null
+      }
+    ],
+    "failures": [
+      "create_exact_en in A/B/C proposed literal backslash-n instead of requested LF; exact action approval refused the incorrect bytes.",
+      "All five flat/hierarchical classifier requests timed out at 30 seconds and fell back to the original bounded planner. Valid live semantic extraction was not observed.",
+      "missing_name_zh in C guessed filename memo without asking; exact approval rejected it. A was interrupted at global request limit; B was never started."
+    ],
+    "limitations": [
+      "Three development requests, a single repetition and incomplete coverage cannot establish accuracy or latency gains.",
+      "Offline tests ran concurrently with part of the smoke; its latency is operational smoke evidence, not a controlled performance comparison.",
+      "Reported 42482 tokens cover 25 requests; 5 timed-out requests have unknown usage.",
+      "Regrading scorer 2.1 added explicit dependency-order checks from an independent offline counterexample, without prompt/data changes or more inference.",
+      "Raw evidence directories are Git-ignored and are not shipped in a clone; hashes and compact measured results are preserved here."
+    ],
+    "working_directory": "work"
+  },
+  "independent_review": "work/evals/results/intent_review_20261013.json",
+  "final_source_sha256": {
+    "work/src/task_agent/__init__.py": "82df2aa305d8ae014426c9a900f391de71a7b9380498e449b3d2394d0a9788cf",
+    "work/src/task_agent/cli.py": "1e294956430ba643728664abe9ce385a5520afdbedef019fa6c33855f26e5a1c",
+    "work/src/task_agent/intent.py": "67fc5417e2682fde9f7b1c07ecc8a295d82b67c3833273461e32f8fdbf957348",
+    "work/src/task_agent/planner.py": "8006c08c79264562ecf15d917aa16d960783a6efd5810d80e3341c5419bbd782",
+    "work/src/task_agent/runtime.py": "b98e93398b429878bab96e29fbed2912ad3c4bcdcbf7429c9b77638e52df9733",
+    "work/src/task_agent/store.py": "3572720fdb172b46294e34aca2f7d55ed5f629846ce013cabcaccae9dc4605b0",
+    "work/src/task_agent/tools.py": "52fd14e93f2e50579ec182ec4731ce1093daf27ae45fc7cca7114a89e8640fb1",
+    "work/src/task_agent/web.py": "206524c3bf768e3401fad0adc83b0d98915e4c9c492201b5f441f68ea787d618",
+    "work/src/model_budget.py": "e9a2c3df7a673593c31d18440cde28d0e7fb30b7ccd2d2caff7d89f3d6868ca2",
+    "work/src/model_telemetry.py": "841d8d6d695a655423ed5a12d6c712f7c6ce84d4dc3f45f58132cc2a9e24722b",
+    "work/evals/intent_eval.py": "fa3a96e812ba8cf3df1a9e8ad0538585c48a8e0429d335fa16881e2921bfa986",
+    "work/evals/intent_metrics.py": "7694f4900aef796c11110ad49b4e2a2f6bd4cd23a6e1d8dae0ad4d5f6d01bf30"
+  }
+}

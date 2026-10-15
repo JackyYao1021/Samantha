@@ -1,0 +1,118 @@
+{
+  "schema_version": "1.0",
+  "review_date": "2026-10-13",
+  "reviewer": "independent review agent",
+  "scope": "Adversarial runtime, request accounting, approval and recovery boundaries, evaluation protocol and scorer counterexamples; no implementation or documentation authored by reviewer.",
+  "actual_live_model_requests_by_reviewer": 0,
+  "formal_plan_audit": {
+    "execution": "Offline Python assertions against load_dataset() and make_plan(formal=True); no model run.",
+    "protocol_version": "2.0",
+    "dataset_cases": 64,
+    "complete_abc_pairs": 156,
+    "planned_case_runs": 468,
+    "maximum_physical_requests": 3924,
+    "same_total": "Every paired task grants A=B=C=8 total physical requests.",
+    "extra_classifier": "Every paired task grants A=8, B=C=9 or 10 according to explicit clarification allowance.",
+    "freeze_integrity_and_group_isolation": "passed load_dataset validation",
+    "dataset_sha256": "cd411e44173458e4ccd7cf5c0f8bad2d9ca471769b547384f94af021a657f898",
+    "protocol_sha256": "a055dee363680f7a2ec730b9c0f4373a53e931a2d0f4e1c28a3c12784ee5e8e8",
+    "formal_model_comparison_run": false
+  },
+  "tests": [
+    {
+      "command": ".\\.venv\\Scripts\\python.exe -B -m unittest discover -s work/tests -p test_intent_review.py -q",
+      "count": 18,
+      "seconds": 6.121,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "result": "OK",
+      "model_boundaries": "Synthetic telemetry contexts only; true subprocess os._exit interruptions and production filesystem tools."
+    },
+    {
+      "command": ".\\.venv\\Scripts\\python.exe -B -m unittest discover -s work/tests -p test_workflow.py -q",
+      "count": 61,
+      "seconds": 1.215,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "result": "OK"
+    },
+    {
+      "command": ".\\.venv\\Scripts\\python.exe -B -m unittest discover -s work/tests -p test_model_budget.py -q",
+      "count": 16,
+      "seconds": 0.019,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "result": "OK"
+    },
+    {
+      "command": ".\\.venv\\Scripts\\python.exe -B -m unittest discover -s work/tests -p test_model_telemetry.py -q",
+      "count": 11,
+      "seconds": 0.362,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "result": "OK"
+    },
+    {
+      "command": ".\\.venv\\Scripts\\python.exe -B -m unittest discover -s work/tests -p test_task_agent*.py -q",
+      "count": 105,
+      "seconds": 9.754,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 1,
+      "result": "OK"
+    }
+  ],
+  "verified_invariants": [
+    "Misclassified system/unsupported advice leaves every original tool available and writes require exact action approval.",
+    "Unknown labels cannot authorize shell execution.",
+    "Short clarification answers preserve the original request, explicit negations and persisted intent mode after restart.",
+    "Classifier failures and internal retries consume shared physical request budgets; outer or task cap rejection creates no phantom physical request.",
+    "A true process kill inside an admitted synthetic model boundary preserves the request reservation and charges interrupted work on restart.",
+    "A true process kill after append is reconciled without append replay or repeated intent classification.",
+    "Changed live source content invalidates an approved copy before any destination effect.",
+    "Requirement correction invalidates an already granted pending approval and records a new intent revision.",
+    "Quoted file text and failed observations cannot ground environment-derived paths.",
+    "Oversized advisory intent is discarded before real observations or original user constraints.",
+    "Independent end-state scorer rejects missing files despite runtime.succeeded.",
+    "Independent protocol scorer rejects missing second input read, mismatched approval identity and reused grant even when final files match.",
+    "Actual append-then-read execution is rejected when the original request requires read-before-append, even though final bytes are correct."
+  ],
+  "review_findings_resolved": [
+    {
+      "finding": "Original post-return accounting could lose physical model budget on process kill.",
+      "resolution": "Durable pre-transport admission, completion callback, uncertain outcome records and interrupted-time recovery; subprocess counterexample passes."
+    },
+    {
+      "finding": "Large advisory intent could evict actual observations before itself being discarded.",
+      "resolution": "Advisory is now dropped before real evidence trimming; independent oversized advisory test passes."
+    },
+    {
+      "finding": "Context provenance was initially only a model assertion.",
+      "resolution": "Context-derived object paths must occur in relevant successful or verified task evidence; live freshness remains enforced by tools and approval preconditions."
+    },
+    {
+      "finding": "Protocol grading initially accepted approval by action ID without checking identity or consumption.",
+      "resolution": "Scorer checks exact identity and single-use grants; independent tampered-trace tests pass."
+    },
+    {
+      "finding": "Tool-name-only read requirements would miss a required second source file.",
+      "resolution": "Scorer checks required read targets against authored fixture actions; missing b.txt read is independently rejected."
+    },
+    {
+      "finding": "Explicit operation dependencies were initially not graded when reversed actions produced identical final bytes.",
+      "initial_counterexample": "18-test review run initially had one failure: reference_append_en with only the scripted planner actions reordered to append-then-read was incorrectly accepted; request, gold dependencies and expected bytes were unchanged.",
+      "resolution": "Scorer now matches frozen gold operations to actual successful tool-observation chronology and validates each dependency; final independent 18-test run passes. Saved-evidence regrading needs no new model requests."
+    }
+  ],
+  "limitations": [
+    "Passing scripted and synthetic-boundary tests establishes execution and evaluation wiring, not classifier accuracy or overall task improvement.",
+    "Context provenance checks establish prior path occurrence, not correct referent selection or current freshness; planner and live tools remain responsible.",
+    "Interrupted active time conservatively includes possible downtime up to the remaining allowance.",
+    "Lexical answer and clarification checks are deliberately bounded fixture checks, not a general semantic judge.",
+    "Formal paired heldout comparison and default-switch acceptance have not been independently run; baseline should remain the default."
+  ]
+}

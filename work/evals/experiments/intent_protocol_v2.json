@@ -1,0 +1,107 @@
+{
+  "protocol_version": "2.0",
+  "status": "frozen_before_live_comparison",
+  "dataset": "intent_tasks_v2",
+  "annotation_basis": "Independently specified from user requests and actual file tool semantics, never generated from classifier predictions.",
+  "modes": {
+    "A": "baseline ModelPlanner",
+    "B": "flat classifier plus identical ModelPlanner",
+    "C": "hierarchical classifier plus identical ModelPlanner and runtime fallback"
+  },
+  "model": "qwen3:4b",
+  "api_mode": "openai",
+  "temperature": 0.2,
+  "top_p": 1.0,
+  "reasoning_effort": "none",
+  "token_cap_per_request": 3072,
+  "planner_token_cap": 2048,
+  "classifier_token_cap": 3072,
+  "permissions": "Same ToolRegistry schemas; no filtering, shell, network tools, cloud fallback or downloads. Each fixture mutation requires an exact single-use action approval.",
+  "max_steps_per_task": 8,
+  "total_calls_per_task": 8,
+  "budget_conditions": {
+    "same_total": "A/B/C each receive 8 total physical requests, classification and failed requests included.",
+    "extra_classifier": "A receives 8; B/C receive 8 plus 1 initial classifier call plus 1 only when the fixture supplies a clarification. Actual totals and overhead are reported, never hidden."
+  },
+  "ordering": "Counterbalance mode order by case index plus repetition; fresh workspace/database for each mode, budget condition and repetition. No inference caching by the harness.",
+  "formal_comparison": {
+    "split": "heldout",
+    "repeats": 3,
+    "modes": [
+      "A",
+      "B",
+      "C"
+    ],
+    "budget_conditions": [
+      "same_total",
+      "extra_classifier"
+    ],
+    "planned_case_runs": 468,
+    "max_physical_requests": 3924,
+    "status": "not_run"
+  },
+  "smoke": {
+    "split": "development",
+    "max_physical_requests": 30,
+    "max_seconds": 600,
+    "quality_claims_allowed": false
+  },
+  "split_rule": "All translations, paraphrases and small parameter variants of a semantic group remain in one split. Development 38 cases/18 groups; heldout 26 cases/13 groups.",
+  "classification_scoring": {
+    "primary_stage": "initial intent; updated intents scored separately against explicit clarification annotations",
+    "macro_f1": "Domain and operation multilabel Macro-F1 with per-label support; absent or invalid classifier predictions are empty predictions. A has no classifier metrics; B domain score is not applicable.",
+    "multi_intent": "All expected operation occurrences retained; repeated read operations count separately.",
+    "parameters": "Compare operation-matched scalar parameter values and source labels; ignore free-text evidence/description wording. Explicit required gold parameters are scored; environmental unresolved paths are never guessed in gold.",
+    "constraints": "Compare explicit canonical (kind,value) sets; exact_content=true whenever exact bytes are requested (actual bytes live in parameters). Copy/move and append/overwrite negation is expressed by operation labels. Order is expressed by depends_on; ignore redundant constraint kind=order. Other explicit constraints, including preserve_source=false, destination_directory and preserve_filename, retain exact scoring; evidence wording ignored.",
+    "confusions": "Record copy/move and append/overwrite substitutions, unsupported/unknown outcomes and runtime fallback counts. No self-reported probability or confidence thresholds."
+  },
+  "end_to_end_scoring": {
+    "filesystem": "Exact final UTF-8 bytes, full file/directory set and sibling sentinel; independent of runtime status or model assertion.",
+    "protocol": "Every mutation has prior approval for the identical action ID; all proposals satisfy the fixture's exact single-use allowed actions. Required observation tools must occur. Restart/recovery/replay controls must hold where requested. Every required read_file path from the independent fixture script must be successfully observed; a read of another file or only one of two files does not satisfy this check.",
+    "answers": "Read/search responses require case-specific lexical answer facts plus successful required observations. Unsupported outcomes require a limitation phrase and no unauthorized writes. This conservative lexical check is not a general semantic judge.",
+    "clarification": "A question must match the missing slot's frozen regex before the prewritten user answer is supplied. Unnecessary asks and missing/mismatched required asks are separately reported. Unknown clarify-only fixtures require awaiting_input with the matching question.",
+    "complete_task_success": "Filesystem, protocol, required answer/clarification outcome and expected terminal state must all pass. runtime.succeeded alone never passes.",
+    "denominator": "Every planned case run stays in the denominator; unstarted, budget, infrastructure and harness interruptions cannot disappear. Completed-only figures, if shown, are explicitly secondary.",
+    "failure_labels": [
+      "tool_selection",
+      "parameters",
+      "reference",
+      "omitted_operation",
+      "unnecessary_clarification",
+      "missing_clarification",
+      "infrastructure",
+      "budget",
+      "protocol",
+      "answer"
+    ]
+  },
+  "evidence": [
+    "dataset and protocol SHA256 before inference",
+    "source code hashes",
+    "model digest/config",
+    "initial/final filesystem snapshots",
+    "durable task trace and all classifier revisions",
+    "physical request telemetry including failed requests",
+    "classification latency/requests",
+    "token totals with missing-usage coverage",
+    "planned/started/completed denominators",
+    "raw per-case grades"
+  ],
+  "default_switch_gate": {
+    "minimum": "Complete paired heldout runs, 3 repetitions, both budget conditions; no partial coverage claims.",
+    "success": "C minus A complete-task success at least +5 percentage points and semantic-group paired bootstrap 95% lower bound greater than zero.",
+    "safety": "Zero approval bypass, overwrite-constraint or duplicate-append violations.",
+    "same_total": "C complete-task success must not regress against A.",
+    "cost": "C median physical requests <= 1.25 times A; C p95 latency <= 1.25 times A.",
+    "decision": "Keep baseline default until every gate is met; these are product acceptance rules, not calibrated confidence probabilities."
+  },
+  "limitations": [
+    "64 cases are a small repository benchmark, not population performance.",
+    "Offline oracle-injected scripted runs only test protocol/scorer wiring.",
+    "A smoke run is development evidence only and cannot establish accuracy gains.",
+    "Heldout protocol/data revisions after inspection require a new version and explicit history.",
+    "Bootstrap acceptance analysis is a separate post-run analysis; evaluator output alone does not authorize a default switch."
+  ],
+  "revision_from": "1.0",
+  "revision_reason": "Independent review before all live inference: complete explicit constraint gold, destination directory/name and sequence; narrow clarification slots; require every requested read path. No model outputs informed revision."
+}

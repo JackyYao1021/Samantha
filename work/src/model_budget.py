@@ -51,9 +51,11 @@ def budget_context(*, max_calls, max_seconds, max_reported_tokens=None, allowed_
         _active.reset(token)
 
 
-def before_request(provider, transport, model, parameters):
+def before_request(provider, transport, model, parameters, *, admission=None):
     budget = _active.get()
     if budget is None:
+        if admission is not None:
+            admission()
         return None
     with budget.lock:
         if provider not in {"qwen", "ollama"} or model not in budget.allowed_models:
@@ -64,6 +66,11 @@ def before_request(provider, transport, model, parameters):
             raise BudgetExceeded("Physical model request budget exceeded")
         if budget.max_reported_tokens is not None and budget.reported_tokens >= budget.max_reported_tokens:
             raise BudgetExceeded("Reported model token budget exceeded")
+        # Durable task admission runs only after the outer experiment has passed
+        # validation, and before its counter changes. A rejected admission is not
+        # a physical request in either budget.
+        if admission is not None:
+            admission()
         budget.calls += 1
     return budget
 

@@ -3,6 +3,7 @@
 const $ = (id) => document.getElementById(id);
 const labels = {ready: "准备执行", running: "执行中", awaiting_approval: "等待确认", awaiting_input: "等待补充", succeeded: "完成", failed: "未完成", cancelled: "已停止"};
 const eventLabels = {task_created: "任务已保存", planning_started: "选择下一步工具", planning_finished: "模型返回决策", clarification_requested: "需要补充信息", clarification_answered: "已收到补充信息", approval_requested: "文件变更等待确认", approval_granted: "已确认此次变更", approval_rejected: "已拒绝变更", action_started: "执行已授权操作", action_verified: "文件终态验证通过", action_recovered: "恢复并核对已完成操作", recovery_needs_approval: "恢复后需要重新确认", recovery_conflict: "恢复遇到文件状态冲突", tool_rejected: "工具参数或边界检查未通过", tool_observed: "获得工具结果", action_failed: "文件操作失败", verification_failed: "文件终态验证失败", execution_conflict: "执行遇到文件状态冲突", task_finished: "Agent 结束本轮", task_failed: "任务未完成", task_cancelled: "任务已停止", budget_exhausted: "任务预算已用尽", cancellation_requested: "已保存停止请求", cancel_requested: "已保存停止请求"};
+Object.assign(eventLabels, {intent_classification_started: "理解任务意图", intent_classification_finished: "完成意图识别尝试", intent_updated: "意图理解已更新", requirements_corrected: "已记录需求修正", model_request_reserved: "已预留请求预算", model_request_completed: "模型请求已记录", model_request_outcome_unknown: "中断请求结果未知", interrupted_work_accounted: "已计入中断工作预算", active_work_started: "开始处理"});
 const toolLabels = {list_files: "查看文件", read_file: "读取文件", search_files: "搜索文本", search_content: "检索索引", write_file: "写入文件", append_file: "追加内容", copy_file: "复制文件", move_file: "移动文件", make_directory: "创建目录"};
 let config = null;
 let selectedId = null;
@@ -153,6 +154,27 @@ function renderApproval(task) {
   const buttons = element("div", "action-buttons");
   buttons.append(actionButton("拒绝并停止", "secondary", () => mutate("approve", {action_id: action.id, approved: false}, task.id)), actionButton("确认并执行", "primary", () => mutate("approve", {action_id: action.id, approved: true}, task.id)));
   box.append(buttons);
+  const correction = element("details");
+  correction.append(element("summary", "", "修正需求后重新规划"));
+  const form = element("form");
+  const input = element("textarea");
+  input.setAttribute("aria-label", "修正当前任务需求");
+  input.placeholder = "例如：请复制并保留源文件，不要移动。";
+  input.maxLength = 12000;
+  input.required = true;
+  const submit = element("button", "button secondary", "提交修正");
+  submit.type = "submit";
+  form.append(input, element("p", "panel-copy", "提交后撤销当前待确认操作，按新需求重新规划；已完成的变更会保留。"), submit);
+  form.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    if (!input.value.trim()) return;
+    submit.disabled = true;
+    try { await mutate("revise", {text: input.value}, task.id); }
+    catch (error) { notice(error.message); }
+    finally { submit.disabled = false; }
+  });
+  correction.append(form);
+  box.append(correction);
 }
 
 function renderClarification(task) {

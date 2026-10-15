@@ -273,6 +273,7 @@ class TaskHandler(BaseHTTPRequestHandler):
             return self.respond(200, {"csrf_token": self.server.csrf_token,
                                       "workspace": str(self.server.workspace), "mode": "live",
                                       "model": model, "model_configured": configured,
+                                      "intent_mode": self.server.runtime.intent_mode,
                                       "connection_verified": False})
         if path == "/api/tasks":
             tasks = []
@@ -310,10 +311,11 @@ class TaskHandler(BaseHTTPRequestHandler):
                 parent = self.server.task(parent_id)
                 if Path(parent["workspace"]).resolve() != workspace:
                     raise HTTPProblem(400, "后续任务必须使用相同工作区。")
-            task = runtime.create_task(request, str(workspace), max_steps=max_steps, parent_id=parent_id)
+            task = runtime.create_task(request, str(workspace), max_steps=max_steps, parent_id=parent_id,
+                                       max_model_calls=body.get("max_model_calls"))
             self.server.schedule(task["id"])
             return self.respond(202, self.server.task(task["id"]))
-        match = re.fullmatch(r"/api/tasks/([A-Za-z0-9_-]{1,128})/(run|approve|answer|cancel)", path)
+        match = re.fullmatch(r"/api/tasks/([A-Za-z0-9_-]{1,128})/(run|approve|answer|revise|cancel)", path)
         if not match:
             raise HTTPProblem(404, "找不到此操作。")
         task_id, action = match.groups()
@@ -326,6 +328,8 @@ class TaskHandler(BaseHTTPRequestHandler):
             runtime.approve(task_id, action_id, approved=approved)
         elif action == "answer":
             runtime.answer(task_id, self.text_field(body, "text"))
+        elif action == "revise":
+            runtime.revise(task_id, self.text_field(body, "text"))
         elif action == "cancel":
             runtime.cancel(task_id)
             return self.respond(200, self.server.task(task_id))
@@ -338,9 +342,9 @@ def make_server(runtime, workspace, host="127.0.0.1", port=0):
     return TaskServer(runtime, workspace, host, port)
 
 
-def serve(db_path, workspace, host="127.0.0.1", port=8765):
+def serve(db_path, workspace, host="127.0.0.1", port=8765, *, intent_mode=None):
     from .runtime import AgentRuntime
-    server = make_server(AgentRuntime(db_path), workspace, host=host, port=port)
+    server = make_server(AgentRuntime(db_path, intent_mode=intent_mode), workspace, host=host, port=port)
     browser_host = "127.0.0.1" if host == "0.0.0.0" else host
     print(f"Samantha task console: http://{browser_host}:{server.server_port}", flush=True)
     print(f"Workspace: {server.workspace}", flush=True)

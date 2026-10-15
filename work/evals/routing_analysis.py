@@ -145,6 +145,31 @@ def _usage(calls, *, evidence_complete):
     return result
 
 
+def _routing_quality(records, planned):
+    classified = [r for r in records if _started(r) and r.get("classification_family") is not None]
+    correct = sum(r["classification_family"] == r["family"] for r in classified)
+    calls = [c for r in records for c in _physical_calls(r)]
+    stages = {}
+    for stage in ("rule", "embedding", "llm", "default"):
+        entries = [(r, step) for r in records for step in r.get("route_trace", []) if step["stage"] == stage]
+        accepted = [(r, s) for r, s in entries if s["status"] == "accepted"]
+        errors = sum(s["family"] != r["family"] for r, s in accepted)
+        if entries:
+            stages[stage] = {"visited": len(entries), "accepted": len(accepted),
+                "status_counts": dict(Counter(s["status"] for _, s in entries)),
+                "wrong_acceptances": errors,
+                "accepted_error_rate": errors / len(accepted) if accepted else None,
+                "exit_rate_of_planned": len(accepted) / len(planned) if planned else None,
+                "duration_ms": _measurement([s.get("duration_ms") for _, s in entries], len(entries))}
+    return {"classified": len(classified), "correct": correct,
+            "accuracy_when_classified": correct / len(classified) if classified else None,
+            "classification_coverage": len(classified) / len(planned) if planned else None,
+            "llm_classifier_calls": sum(c.get("role") == "model_router" for c in calls),
+            "embedding_query_calls": sum(c["call_type"] == "embedding" for c in calls),
+            "default_routes": sum((r.get("route_decision") or {}).get("default_used", False) for r in records),
+            "cascade_stages": stages}
+
+
 def _group(records, planned):
     started = [row for row in records if _started(row)]
     complete = [row for row in started if row["complete"]]
@@ -186,6 +211,7 @@ def _group(records, planned):
         "fallback": {"count": len(fallback), "rate": len(fallback) / len(started) if started else None,
                      "reason_counts": dict(sorted(Counter(row.get("fallback_reason") or "unknown" for row in fallback).items()))},
         "error_category_counts": dict(sorted(errors.items())),
+        "routing_quality": _routing_quality(records, planned),
     }
 
 
@@ -392,6 +418,25 @@ def write_routing_report(output, manifest, summary, comparison):
                       f"{display(usage['coverage']['output_tokens']['reported_sum'])}。"
                       f"错误分类：`{cell(json.dumps(group['error_category_counts'], ensure_ascii=False, sort_keys=True))}`。", ""])
     lines.extend(details)
+    lines.extend(["路由分类与任务成功独立计分；早退错误不会触发后层重判。LLM 分类调用不包含求解调用。", "",
+                  "| 策略 | 分类正确/已分类 | 分类覆盖 | LLM 分类调用 | query embedding 调用 | 默认回退 |",
+                  "| --- | --- | --- | --- | --- | --- |"])
+    stage_notes = []
+    for policy, group in summary.get("policies", {}).items():
+        quality = group.get("routing_quality")
+        if quality is None or policy.startswith("fixed_"):
+            continue
+        lines.append(f"| {cell(policy)} | {quality['correct']}/{quality['classified']} "
+                     f"| {display(quality['classification_coverage'], ratio=True)} | {quality['llm_classifier_calls']} "
+                     f"| {quality['embedding_query_calls']} | {quality['default_routes']} |")
+        if quality["cascade_stages"]:
+            details = [f"{stage}: 接受 {s['accepted']}/{s['visited']}，错误接受 {s['wrong_acceptances']}"
+                       for stage, s in quality["cascade_stages"].items()]
+            stage_notes.extend(["", "级联各层：" + "；".join(details) + "。", ""])
+    lines.extend(stage_notes)
+    if manifest.get("cascade_calibration"):
+        lines.extend(["", "开发集留一校准后的冻结 gate（拟合成绩不代表泛化准确率）：", "", "```json",
+                      json.dumps(manifest["cascade_calibration"]["gate"], ensure_ascii=False, indent=2), "```", ""])
     diagnostic = summary.get("routing_diagnostics", {})
     lines.extend(["错路由证据覆盖："
                   f"{diagnostic.get('fixed_evidence_complete_attempts', 0)}/{diagnostic.get('routed_attempts', 0)} "

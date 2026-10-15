@@ -1,0 +1,338 @@
+[
+  {
+    "case_id": "RP2-write-01-en",
+    "group_id": "RP2-write-01",
+    "split": "development",
+    "family": "write",
+    "request": "Create a new file copper.txt with the complete contents 'north'."
+  },
+  {
+    "case_id": "RP2-write-01-zh",
+    "group_id": "RP2-write-01",
+    "split": "development",
+    "family": "write",
+    "request": "新建 copper.txt，完整内容为“north”。"
+  },
+  {
+    "case_id": "RP2-write-02-en",
+    "group_id": "RP2-write-02",
+    "split": "development",
+    "family": "write",
+    "request": "Overwrite the existing invoice.md with the supplied text 'Paid in full'."
+  },
+  {
+    "case_id": "RP2-write-02-zh",
+    "group_id": "RP2-write-02",
+    "split": "development",
+    "family": "write",
+    "request": "将已有 invoice.md 的全文覆盖为给定文字“Paid in full”。"
+  },
+  {
+    "case_id": "RP2-write-03-en",
+    "group_id": "RP2-write-03",
+    "split": "development",
+    "family": "write",
+    "request": "Save this complete JSON document into a new settings.json file: {\"mode\":\"quiet\"}."
+  },
+  {
+    "case_id": "RP2-write-03-zh",
+    "group_id": "RP2-write-03",
+    "split": "development",
+    "family": "write",
+    "request": "把完整 JSON 文档 {\"mode\":\"quiet\"} 保存为新文件 settings.json。"
+  },
+  {
+    "case_id": "RP2-write-04-en",
+    "group_id": "RP2-write-04",
+    "split": "development",
+    "family": "write",
+    "request": "Produce one new roster.csv containing the two provided rows 'name,team' and 'Mira,red'."
+  },
+  {
+    "case_id": "RP2-write-04-zh",
+    "group_id": "RP2-write-04",
+    "split": "development",
+    "family": "write",
+    "request": "生成一个新的 roster.csv 文件，内容由给定的两行“name,team”和“Mira,red”组成。"
+  },
+  {
+    "case_id": "RP2-rename-01-en",
+    "group_id": "RP2-rename-01",
+    "split": "development",
+    "family": "rename",
+    "request": "Rename budget-draft.xlsx to budget-approved.xlsx without changing the file contents."
+  },
+  {
+    "case_id": "RP2-rename-01-zh",
+    "group_id": "RP2-rename-01",
+    "split": "development",
+    "family": "rename",
+    "request": "把 budget-draft.xlsx 重命名为 budget-approved.xlsx，文件内容不变。"
+  },
+  {
+    "case_id": "RP2-rename-02-en",
+    "group_id": "RP2-rename-02",
+    "split": "development",
+    "family": "rename",
+    "request": "Move photo-index.txt from the existing scans directory into the existing catalog directory, retaining its name and bytes."
+  },
+  {
+    "case_id": "RP2-rename-02-zh",
+    "group_id": "RP2-rename-02",
+    "split": "development",
+    "family": "rename",
+    "request": "将 scans 目录中的 photo-index.txt 移至已有 catalog 目录，文件名和字节保持不变。"
+  },
+  {
+    "case_id": "RP2-rename-03-en",
+    "group_id": "RP2-rename-03",
+    "split": "development",
+    "family": "rename",
+    "request": "Change the filename guide.text to guide.txt; keep the document itself intact."
+  },
+  {
+    "case_id": "RP2-rename-03-zh",
+    "group_id": "RP2-rename-03",
+    "split": "development",
+    "family": "rename",
+    "request": "将 guide.text 的文件名改为 guide.txt，文档正文保持完整。"
+  },
+  {
+    "case_id": "RP2-rename-04-en",
+    "group_id": "RP2-rename-04",
+    "split": "development",
+    "family": "rename",
+    "request": "The file manual-v1.md should have the name handbook.md in the same directory, with its original body preserved."
+  },
+  {
+    "case_id": "RP2-rename-04-zh",
+    "group_id": "RP2-rename-04",
+    "split": "development",
+    "family": "rename",
+    "request": "同一目录中的 manual-v1.md 应改用 handbook.md 这个名称，原始正文保留。"
+  },
+  {
+    "case_id": "RP2-append-01-en",
+    "group_id": "RP2-append-01",
+    "split": "development",
+    "family": "append",
+    "request": "Append the literal line 'CHECKPOINT' to the existing timeline.log, keeping its current prefix intact."
+  },
+  {
+    "case_id": "RP2-append-01-zh",
+    "group_id": "RP2-append-01",
+    "split": "development",
+    "family": "append",
+    "request": "在现有 timeline.log 后追加字面行“CHECKPOINT”，保留原来的前缀字节。"
+  },
+  {
+    "case_id": "RP2-append-02-en",
+    "group_id": "RP2-append-02",
+    "split": "development",
+    "family": "append",
+    "request": "Add the row 'Nina,blue' at the bottom of the existing members.csv without replacing its header or earlier records."
+  },
+  {
+    "case_id": "RP2-append-02-zh",
+    "group_id": "RP2-append-02",
+    "split": "development",
+    "family": "append",
+    "request": "在已有 members.csv 最下面补入一行“Nina,blue”，不替换表头和之前的记录。"
+  },
+  {
+    "case_id": "RP2-append-03-en",
+    "group_id": "RP2-append-03",
+    "split": "development",
+    "family": "append",
+    "request": "Extend the existing reading-list.txt by placing 'Book Seven' after all of its present text."
+  },
+  {
+    "case_id": "RP2-append-03-zh",
+    "group_id": "RP2-append-03",
+    "split": "development",
+    "family": "append",
+    "request": "扩展已有 reading-list.txt，在全部现有文字之后接上“Book Seven”。"
+  },
+  {
+    "case_id": "RP2-append-04-en",
+    "group_id": "RP2-append-04",
+    "split": "development",
+    "family": "append",
+    "request": "Keep notes.md exactly as it currently begins and add the supplied paragraph 'Next meeting: Monday' at its end."
+  },
+  {
+    "case_id": "RP2-append-04-zh",
+    "group_id": "RP2-append-04",
+    "split": "development",
+    "family": "append",
+    "request": "保留 notes.md 现有开头的全部内容，在末尾添加给定段落“Next meeting: Monday”。"
+  },
+  {
+    "case_id": "RP2-select-01-en",
+    "group_id": "RP2-select-01",
+    "split": "development",
+    "family": "select",
+    "request": "List the relative paths of existing .yaml files; leave all stored content unchanged."
+  },
+  {
+    "case_id": "RP2-select-01-zh",
+    "group_id": "RP2-select-01",
+    "split": "development",
+    "family": "select",
+    "request": "列出已有 .yaml 文件的相对路径，所有存储内容保持不变。"
+  },
+  {
+    "case_id": "RP2-select-02-en",
+    "group_id": "RP2-select-02",
+    "split": "development",
+    "family": "select",
+    "request": "Which documents contain the word 'cobalt' but not 'obsolete'? Return their paths without editing them."
+  },
+  {
+    "case_id": "RP2-select-02-zh",
+    "group_id": "RP2-select-02",
+    "split": "development",
+    "family": "select",
+    "request": "哪些文档包含“cobalt”而不包含“obsolete”？仅返回路径，不编辑文件。"
+  },
+  {
+    "case_id": "RP2-select-03-en",
+    "group_id": "RP2-select-03",
+    "split": "development",
+    "family": "select",
+    "request": "Find the files whose names begin with invoice_ in the supplied directory inventory."
+  },
+  {
+    "case_id": "RP2-select-03-zh",
+    "group_id": "RP2-select-03",
+    "split": "development",
+    "family": "select",
+    "request": "从给定目录清单找出文件名以 invoice_ 开头的文件。"
+  },
+  {
+    "case_id": "RP2-select-04-en",
+    "group_id": "RP2-select-04",
+    "split": "development",
+    "family": "select",
+    "request": "Report the paths of Markdown notes under research that contain the phrase 'pending review'. This is a read-only lookup."
+  },
+  {
+    "case_id": "RP2-select-04-zh",
+    "group_id": "RP2-select-04",
+    "split": "development",
+    "family": "select",
+    "request": "报告 research 下包含“pending review”的 Markdown 笔记路径，这是一次只读查询。"
+  },
+  {
+    "case_id": "RP2-multi_step-01-en",
+    "group_id": "RP2-multi_step-01",
+    "split": "development",
+    "family": "multi_step",
+    "request": "First make a directory called snapshots, then create snapshots/status.txt with the supplied body 'green'."
+  },
+  {
+    "case_id": "RP2-multi_step-01-zh",
+    "group_id": "RP2-multi_step-01",
+    "split": "development",
+    "family": "multi_step",
+    "request": "先建立 snapshots 目录，再创建 snapshots/status.txt，正文为给定内容“green”。"
+  },
+  {
+    "case_id": "RP2-multi_step-02-en",
+    "group_id": "RP2-multi_step-02",
+    "split": "development",
+    "family": "multi_step",
+    "request": "Rename raw.log to checked.log, then append 'verified' to the renamed file."
+  },
+  {
+    "case_id": "RP2-multi_step-02-zh",
+    "group_id": "RP2-multi_step-02",
+    "split": "development",
+    "family": "multi_step",
+    "request": "先把 raw.log 改名为 checked.log，然后向改名后的文件追加“verified”。"
+  },
+  {
+    "case_id": "RP2-multi_step-03-en",
+    "group_id": "RP2-multi_step-03",
+    "split": "development",
+    "family": "multi_step",
+    "request": "Find all .cfg files and then write their paths into a new config-index.txt file."
+  },
+  {
+    "case_id": "RP2-multi_step-03-zh",
+    "group_id": "RP2-multi_step-03",
+    "split": "development",
+    "family": "multi_step",
+    "request": "先找出所有 .cfg 文件，再把它们的路径写入新文件 config-index.txt。"
+  },
+  {
+    "case_id": "RP2-multi_step-04-en",
+    "group_id": "RP2-multi_step-04",
+    "split": "development",
+    "family": "multi_step",
+    "request": "Write the text 'edition two' to an intermediate file staging.txt and subsequently rename it to published.txt."
+  },
+  {
+    "case_id": "RP2-multi_step-04-zh",
+    "group_id": "RP2-multi_step-04",
+    "split": "development",
+    "family": "multi_step",
+    "request": "先把文字“edition two”写入中间文件 staging.txt，随后把它改名为 published.txt。"
+  },
+  {
+    "case_id": "RP2-clarify-01-en",
+    "group_id": "RP2-clarify-01",
+    "split": "development",
+    "family": "clarify",
+    "request": "Create a new text document with the contents 'ready', but I have not supplied its filename. Ask for that filename first."
+  },
+  {
+    "case_id": "RP2-clarify-01-zh",
+    "group_id": "RP2-clarify-01",
+    "split": "development",
+    "family": "clarify",
+    "request": "创建内容为“ready”的新文本文档，但我没有提供文件名。请先询问文件名。"
+  },
+  {
+    "case_id": "RP2-clarify-02-en",
+    "group_id": "RP2-clarify-02",
+    "split": "development",
+    "family": "clarify",
+    "request": "Rename outline.md, but the replacement name is unspecified. Ask me what name to use before changing it."
+  },
+  {
+    "case_id": "RP2-clarify-02-zh",
+    "group_id": "RP2-clarify-02",
+    "split": "development",
+    "family": "clarify",
+    "request": "给 outline.md 改名，但新名称尚未指定。在修改前先问我应使用什么名字。"
+  },
+  {
+    "case_id": "RP2-clarify-03-en",
+    "group_id": "RP2-clarify-03",
+    "split": "development",
+    "family": "clarify",
+    "request": "Replace the contents of proposal.txt with my revised wording; I have not given you the revised wording yet."
+  },
+  {
+    "case_id": "RP2-clarify-03-zh",
+    "group_id": "RP2-clarify-03",
+    "split": "development",
+    "family": "clarify",
+    "request": "用我修订后的文字替换 proposal.txt 的内容，但我还没有给出修订文字。"
+  },
+  {
+    "case_id": "RP2-clarify-04-en",
+    "group_id": "RP2-clarify-04",
+    "split": "development",
+    "family": "clarify",
+    "request": "Add 'reviewed' to one of alpha.log and beta.log. I have not said which one; request the target before writing."
+  },
+  {
+    "case_id": "RP2-clarify-04-zh",
+    "group_id": "RP2-clarify-04",
+    "split": "development",
+    "family": "clarify",
+    "request": "向 alpha.log 和 beta.log 中的一个追加“reviewed”，但我还没说选哪一个，请在写入前确认目标。"
+  }
+]

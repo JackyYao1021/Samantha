@@ -195,7 +195,7 @@ def _fixture_paths(public_input):
     return sorted(paths)
 
 
-def _rule_decision(public_input):
+def _rule_decision(public_input, *, abstain=False):
     if not isinstance(public_input, dict):
         raise ValueError("Routing input must be a public-input object")
     request = _text(public_input.get("request"), "request")
@@ -208,6 +208,15 @@ def _rule_decision(public_input):
         "select": r"\b(?:select|choose|pick|find|identify|search|filter)\b|\blook for\b|\breturn\b.{0,40}\bpaths\b.{0,60}\b(?:whose|matching)\b|选择|挑选|筛出|筛选|找出|查找|找到",
         "write": r"\b(?:write|create|save|overwrite|make)\b|创建|新建|写入|保存|覆盖",
     }
+    if abstain:
+        # A conservative gate, not a full negation/conditional parser. Leave
+        # these requests to semantic routing rather than accepting a keyword.
+        action_pattern = "(?:" + "|".join(patterns.values()) + ")"
+        if re.search(r"(?:\b(?:not|never|don't|cannot)\b|不能|不要|不得|不许).{0,24}" + action_pattern,
+                     action_text):
+            return None, "Negated operation requires semantic classification."
+        if re.search(r"\b(?:if|unless|whether|instead|either|or)\b|如果|除非|是否|或者|还是", action_text):
+            return None, "Conditional or alternative operations require semantic classification."
     matches = {family: list(re.finditer(pattern, action_text)) for family, pattern in patterns.items()}
     active = {family for family, values in matches.items() if values}
     # Chinese 'append/write at the end' denotes append, not two operations.
@@ -219,6 +228,8 @@ def _rule_decision(public_input):
         return "multi_step", "Multiple explicit operations with an ordering/conjunction cue; multi-step rule has priority."
     if sequence and repeated:
         return "multi_step", "Repeated explicit operations with an ordering cue; multi-step rule has priority."
+    if abstain and len(active) > 1:
+        return None, "Multiple operation families without an unambiguous sequence."
     if re.search(r"\b(?:ask|clarify)\b.{0,35}\b(?:which|name|filename|file name)\b|请问|需要.{0,8}(?:澄清|确认)|未指定|没有指定", action_text):
         return "clarify", "The request explicitly asks to clarify missing file information."
     named = bool(re.search(r"[\w./ -]+\.[a-z0-9]{1,8}\b|\b(?:named|called|filename|file name)\b|名为|叫做|命名为", request.lower()))
@@ -232,6 +243,8 @@ def _rule_decision(public_input):
     for family in ("rename", "append", "select", "write"):
         if family in active:
             return family, f"Explicit {family} operation detected in the public request."
+    if abstain:
+        return None, "No known operation rule matched; abstain."
     return "multi_step", "No known operation rule matched; conservative multi_step fallback (unknown intent)."
 
 
